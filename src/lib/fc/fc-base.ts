@@ -76,11 +76,10 @@ export class FcBase {
   async addConfig(assumeYes?: boolean): Promise<void> {
     this.logger.debug(`${this.configFile} exists, updating...`, 'yellow');
 
-    const fcConfigInGlobal = JSON.parse(require(this.configFile));
-
+    const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
     const serviceInGlobal = fcConfigInGlobal?.service;
-    const functionsInGlobal = fcConfigInGlobal?.functions;
-    const triggersInGlobal = fcConfigInGlobal?.triggers;
+    const functionsInGlobal = fcConfigInGlobal?.functions || [];
+    const triggersInGlobal = fcConfigInGlobal?.triggers || [];
 
     const fcConfigToBeWritten = fcConfigInGlobal;
     if (this.serviceConfig) {
@@ -136,11 +135,14 @@ export class FcBase {
 
   async getFunctionNamesInConfigFile(): Promise<string[]> {
     if (await fse.pathExists(this.configFile) && await isFile(this.configFile)) {
-      const fcConfigInGlobal = JSON.parse(require(this.configFile));
+      const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
+      const functionsUnderService = [];
       if (fcConfigInGlobal?.functions) {
-        return fcConfigInGlobal?.functions?.map((a) => a.name);
+        for (const f of fcConfigInGlobal?.functions) {
+          if (f.service === this.serviceConfig.name) { functionsUnderService.push(f.name); }
+        }
       }
-      return [];
+      return functionsUnderService;
     } else {
       throw new Error('Please deploy resource first.');
     }
@@ -148,11 +150,14 @@ export class FcBase {
 
   async getTriggerNamesInConfigFile(): Promise<string[]> {
     if (await fse.pathExists(this.configFile) && await isFile(this.configFile)) {
-      const fcConfigInGlobal = JSON.parse(require(this.configFile));
+      const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
+      const triggersUnderFunction = [];
       if (fcConfigInGlobal?.triggers) {
-        return fcConfigInGlobal?.triggers.map((a) => a.name);
+        for (const t of fcConfigInGlobal?.triggers) {
+          if (t.service === this.functionConfig.service && t.function === this.functionConfig.name) { triggersUnderFunction.push(t.name); }
+        }
       }
-      return [];
+      return triggersUnderFunction;
     } else {
       throw new Error('Please deploy resource first.');
     }
@@ -161,7 +166,7 @@ export class FcBase {
 
   async delConfig(): Promise<void> {
     this.logger.debug(`Deleting in ${this.configFile}...`, 'yellow');
-    const fcConfigInGlobal = JSON.parse(require(this.configFile));
+    const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
     let serviceInGlobal = fcConfigInGlobal?.service;
     const functionsInGlobal: FunctionConfig[] = fcConfigInGlobal?.functions;
     const triggersInGlobal: TriggerConfig[] = fcConfigInGlobal?.triggers;
@@ -253,6 +258,7 @@ export class FcBase {
   }
 
   delFunction(functions: FunctionConfig[]): FunctionConfig[] {
+    if (!functions) { return undefined; }
     const functionIdx = functions?.findIndex((f) => f.name === this.functionConfig.name);
     if (functionIdx !== undefined && functionIdx >= 0) {
       functions.splice(functionIdx, 1);
@@ -264,6 +270,7 @@ export class FcBase {
   }
 
   delTriggers(triggers: TriggerConfig[], triggerName?: string, functionName?: string): TriggerConfig[] {
+    if (!triggers || triggers.length === 0) { return undefined; }
     if (!triggerName && !functionName) {
       // 删除 yaml 中所有的 trigger
       if (this.triggersConfig) {
@@ -282,7 +289,7 @@ export class FcBase {
       }
     } else if (triggerName) {
       // 删除指定名称的 trigger
-      const triggerIdxInYaml = this.triggersConfig.findIndex((t) => t.name === triggerName);
+      const triggerIdxInYaml = this.triggersConfig?.findIndex((t) => t.name === triggerName);
       if (triggerIdxInYaml !== undefined && triggerIdxInYaml >= 0) {
         const triggerToBeDeleted = this.triggersConfig[triggerIdxInYaml];
         const triggerIns = new Trigger(triggerToBeDeleted);
@@ -291,7 +298,7 @@ export class FcBase {
         if (triggerIdx !== undefined && triggerIdx >= 0) {
           triggers.splice(triggerIdx, 1);
         } else {
-          throw new Error(`Remove trigger error: the trigger: ${triggerName} does not exist in local pulumi stack.`);
+          throw new Error(`Remove trigger error: the trigger: ${triggerName} does not exist in local pulumi stack, please deploy it first.`);
         }
       } else {
         throw new Error(`Trigger: ${triggerName} dose not exist in your yaml file.`);
@@ -316,26 +323,35 @@ export class FcBase {
 
   async delFunctionConfigInConfigFile(): Promise<void> {
     if (await this.configFileExists()) {
-      const configInGlobal = JSON.parse(require(this.configFile));
+      const configInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
 
-      const functions = this.delFunction(configInGlobal.functions);
-      if (functions.length === 0) {
-        // no function left
-        delete configInGlobal.functions;
+      if (configInGlobal?.functions) {
+        const functions = this.delFunction(configInGlobal.functions);
+        if (functions) {
+          if (functions.length === 0) {
+            // no function left
+            delete configInGlobal.functions;
+          } else {
+            configInGlobal.functions = functions;
+          }
+        }
+
+        if (configInGlobal?.triggers) {
+          const triggers = this.delTriggers(configInGlobal.triggers, undefined, this.functionConfig.name);
+          if (triggers) {
+            if (triggers.length === 0) {
+              // no trigger left
+              delete configInGlobal.triggers;
+            } else {
+              configInGlobal.triggers = triggers;
+            }
+          }
+        }
+        await writeStrToFile(this.configFile, JSON.stringify(configInGlobal), 'w', 0o777);
+        this.logger.debug(`Delete function: ${this.functionConfig.name} in ${this.configFile} done!`);
       } else {
-        configInGlobal.functions = functions;
+        throw new Error(`There is no function under service: ${this.serviceConfig.name}`);
       }
-
-      const triggers = this.delTriggers(configInGlobal.triggers, undefined, this.functionConfig.name);
-      if (triggers.length === 0) {
-        // no trigger left
-        delete configInGlobal.triggers;
-      } else {
-        configInGlobal.triggers = triggers;
-      }
-
-      await writeStrToFile(this.configFile, JSON.stringify(configInGlobal), 'w', 0o777);
-      this.logger.debug(`Delete function: ${this.functionConfig.name} in ${this.configFile} done!`);
     } else {
       throw new Error('Please deploy resource first.');
     }
@@ -343,17 +359,23 @@ export class FcBase {
 
   async delTriggerConfigInConfigFile(triggerName?: string): Promise<void> {
     if (await this.configFileExists()) {
-      const configInGlobal = JSON.parse(require(this.configFile));
-      const triggers = this.delTriggers(configInGlobal.triggers, triggerName);
-      if (triggers.length === 0) {
-        // no trigger left
-        delete configInGlobal.triggers;
-      } else {
-        configInGlobal.triggers = triggers;
-      }
+      const configInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
+      if (configInGlobal?.triggers) {
+        const triggers = this.delTriggers(configInGlobal.triggers, triggerName);
+        if (triggers) {
+          if (triggers.length === 0) {
+            // no trigger left
+            delete configInGlobal.triggers;
+          } else {
+            configInGlobal.triggers = triggers;
+          }
+        }
 
-      await writeStrToFile(this.configFile, JSON.stringify(configInGlobal), 'w', 0o777);
-      this.logger.debug(`Delete ${triggerName || 'triggers'} ${this.configFile} done!`);
+        await writeStrToFile(this.configFile, JSON.stringify(configInGlobal), 'w', 0o777);
+        this.logger.debug(`Delete ${triggerName || 'triggers'} ${this.configFile} done!`);
+      } else {
+        throw new Error(`There is no trigger ${triggerName || ''} under function: ${this.functionConfig.name}`);
+      }
     } else {
       throw new Error('Please deploy resource first.');
     }

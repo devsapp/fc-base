@@ -5,8 +5,7 @@ const alicloud = require('@pulumi/alicloud');
 const fcConfigFile = path.join(__dirname, 'fc-config.json');
 
 if (fse.pathExistsSync(fcConfigFile)) {
-  const fcConfig = JSON.parse(require(fcConfigFile));
-
+  const fcConfig = JSON.parse(fse.readFileSync(fcConfigFile, { encoding: 'utf-8' }));
   const serviceConfig = fcConfig.service;
 
   const fcService = new alicloud.fc.Service(serviceConfig.name, serviceConfig);
