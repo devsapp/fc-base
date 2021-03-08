@@ -5,7 +5,7 @@ import { Logger } from '@serverless-devs/core';
 export async function writeStrToFile(targetFile: string, content: string, flags?: string, mode?: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const ws = fse.createWriteStream(targetFile, { flags, mode });
-    ws.write(JSON.stringify(content));
+    ws.write(content);
     ws.end();
     ws.on('finish', () => resolve());
     ws.on('error', (error) => {

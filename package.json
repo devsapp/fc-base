@@ -31,7 +31,7 @@
     "dev": "npx tsc -w -p tsconfig.json",
     "prebuild": "rimraf dist",
     "build": "npx tsc -p tsconfig.json",
-    "postbuild": "cp -r src/lib/utils/pulumi dist/lib/utils",
+    "postbuild": "cp -r src/lib/utils/pulumi dist/lib/utils && cp package.json dist/ && cp package-lock.json dist/",
     "build:component": "npx webpack --mode=production",
     "publish": "npm run build:component && s platform publish",
     "test": "jest",
