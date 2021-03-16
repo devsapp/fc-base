@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@types/fs-extra": "^9.0.0",
-    "@serverless-devs/core": "^0.0.29",
+    "@serverless-devs/core": "0.0.29",
     "deep-equal": "^2.0.0",
     "@types/lodash": "^4.14.168",
     "@types/uuid": "^8.3.0",
@@ -11,7 +11,8 @@
     "@types/progress": "^2.0.3",
     "@types/archiver": "^5.1.0",
     "@types/inquirer": "^7.3.1",
-    "shelljs": "^0.8.4"
+    "shelljs": "^0.8.4",
+    "command-exists": "^1.2.9"
   },
   "devDependencies": {
     "@types/eslint": "^7.2.6",
