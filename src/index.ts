@@ -62,13 +62,14 @@ export default class FcBaseComponent {
     const properties = inputs?.properties || inputs?.Properties;
     // const credentials = inputs?.Credentials;
     const provider = project?.Provider || project?.provider;
-    const accessAlias = inputs?.project?.AccessAlias || inputs?.project?.accessAlias;
-    const credentials = await core.getCredential(provider, accessAlias || 'default');
+    const accessAlias = project?.AccessAlias || project?.accessAlias;
+    const credentials = await core.getCredential(provider, accessAlias || '');
     const args = inputs?.Args || inputs?.args;
 
 
     const serviceConfig: ServiceConfig = properties?.service;
     const functionConfig: FunctionConfig = properties?.function;
+
     const triggersConfig: TriggerConfig[] = properties?.triggers;
     if (!this.validateConfig(serviceConfig, functionConfig, triggersConfig)) {
       throw new Error('Properties check failed, please re-check your properties.');

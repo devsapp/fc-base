@@ -2,6 +2,7 @@ demo1:
   # Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
   Component: fc-base
   Provider: alibaba
+  Access: default
   Properties:
     region: cn-hangzhou
     service:
@@ -15,35 +16,11 @@ demo1:
       runtime: nodejs12
       timeout: 60
     triggers:
-      - name: timerTriggerOne
+      - name: httpTriggerOne
         function: fc-base-component-function-one
         service: qianfeng-fc-base-component-service
-        type: timer
+        type: http
         config:
-          cronExpression: '0 0 8 * * *'
-          enable: true
-          payload: 'awesome-fc'
-      - name: timerTriggerTwo
-        function: fc-base-component-function-one
-        service: qianfeng-fc-base-component-service
-        type: timer
-        config:
-          cronExpression: '0 0 8 * * *'
-          enable: true
-          payload: 'awesome-fc'
-demo2:
-  # Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
-  Component: fc-base
-  Provider: alibaba
-  Properties:
-    region: cn-hangzhou
-    service:
-      name: qianfeng-fc-base-component-service
-    function:
-      name: fc-base-component-function-two
-      service: qianfeng-fc-base-component-service
-      filename: './index.js'
-      handler: 'index.handler'
-      memorySize: 128
-      runtime: nodejs12
-      timeout: 60
+          authType: anonymous
+          methods:
+            - GET
