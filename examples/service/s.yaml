@@ -1,0 +1,25 @@
+demo1:
+  Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
+  # Component: fc-base
+  Provider: alibaba
+  Access: default
+  Properties:
+    region: cn-hangzhou
+    service:
+      name: qianfeng-fc-base-component-service
+      description: 'this is a test'
+      internetAccess: true
+      role: acs:ram::xxx:role/aliyunfcgeneratedrole-cn-shenzhen-vpc-service
+      vpcConfig:
+        vswitchIds:
+          - xxx
+        securityGroupId: xxx
+      nasConfig:
+        userId: -1
+        groupId: -1
+        mountPoints:
+          - serverAddr: xxx.cn-hangzhou.nas.aliyuncs.com:/mnt
+            mountDir: /mnt/auto
+      logConfig:
+        project: ml-test
+        logstore: fc-log
