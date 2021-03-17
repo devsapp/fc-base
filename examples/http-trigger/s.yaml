@@ -1,6 +1,6 @@
 demo1:
-  # Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
-  Component: fc-base
+  Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
+  # Component: fc-base
   Provider: alibaba
   Access: default
   Properties:
@@ -10,7 +10,7 @@ demo1:
     function:
       name: fc-base-component-function-one
       service: qianfeng-fc-base-component-service
-      filename: './index.js'
+      filename: './code.zip'
       handler: 'index.handler'
       memorySize: 128
       runtime: nodejs12

@@ -14,11 +14,11 @@ if (fse.pathExistsSync(fcConfigFile)) {
   const triggersConfig = fcConfig.triggers;
   const fcFunctions = [];
   const fcTriggers = [];
-  if (functionsConfig) {
+  if (Array.isArray(functionsConfig) && functionsConfig.length > 0) {
     for (const functionConfig of functionsConfig) {
       const fcFunction = new alicloud.fc.Function(functionConfig.name, functionConfig, { dependsOn: [fcService], parent: fcService });
       fcFunctions.push(fcFunction);
-      if (triggersConfig) {
+      if (Array.isArray(triggersConfig) && triggersConfig.length > 0) {
         for (const triggerConfig of triggersConfig) {
           if (triggerConfig.function === functionConfig.name) {
             const fcTrigger = new alicloud.fc.Trigger(triggerConfig.name, triggerConfig, { dependsOn: [fcService, fcFunction], parent: fcFunction });

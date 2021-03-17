@@ -6,6 +6,8 @@ import { HLogger, ILogger } from '@serverless-devs/core';
 import equal from 'deep-equal';
 import { promptForConfirmContinue } from '../init/prompt';
 import { TriggerConfig, Trigger } from './trigger';
+import * as _ from 'lodash';
+import * as path from 'path';
 
 export class FcBase {
   @HLogger('S-CORE') logger: ILogger;
@@ -17,6 +19,12 @@ export class FcBase {
 
   constructor(functionConfig?: FunctionConfig, serviceConfig?: ServiceConfig, triggersConfig?: TriggerConfig[], configFile?: string) {
     this.functionConfig = functionConfig;
+    // resolve filename
+    if (!_.isNil(this.functionConfig?.filename)) {
+      Object.assign(this.functionConfig, {
+        filename: path.resolve(this.functionConfig?.filename),
+      });
+    }
     this.serviceConfig = serviceConfig;
     this.triggersConfig = triggersConfig;
     this.configFile = configFile;
@@ -108,6 +116,7 @@ export class FcBase {
     }
     fcConfigToBeWritten.functions = functionsInGlobal;
 
+
     if (this.triggersConfig) {
       for (const triggerConfig of this.triggersConfig) {
         // The key of fc config file is ${account_id}_${region}_${service}
@@ -128,7 +137,10 @@ export class FcBase {
       }
     }
     fcConfigToBeWritten.triggers = triggersInGlobal;
+
     // overwrite file
+    if (_.isEmpty(fcConfigToBeWritten.functions)) { delete fcConfigToBeWritten.functions; }
+    if (_.isEmpty(fcConfigToBeWritten.triggers)) { delete fcConfigToBeWritten.triggers; }
     await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
     this.logger.debug(`${this.configFile} update done!`, 'green');
   }
