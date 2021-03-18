@@ -10,14 +10,16 @@ import * as _ from 'lodash';
 import * as path from 'path';
 
 export class FcBase {
-  @HLogger('S-CORE') logger: ILogger;
+  @HLogger('FC-BASE') logger: ILogger;
 
   readonly functionConfig?: FunctionConfig;
   readonly serviceConfig: ServiceConfig;
   readonly triggersConfig?: TriggerConfig[];
   readonly configFile?: string;
+  readonly credentials: {[key: string]: any};
+  readonly region: string;
 
-  constructor(functionConfig?: FunctionConfig, serviceConfig?: ServiceConfig, triggersConfig?: TriggerConfig[], configFile?: string) {
+  constructor(serviceConfig: ServiceConfig, region: string, credentials: {[key: string]: any}, functionConfig?: FunctionConfig, triggersConfig?: TriggerConfig[], configFile?: string) {
     this.functionConfig = functionConfig;
     // resolve filename
     if (!_.isNil(this.functionConfig?.filename)) {
@@ -28,6 +30,8 @@ export class FcBase {
     this.serviceConfig = serviceConfig;
     this.triggersConfig = triggersConfig;
     this.configFile = configFile;
+    this.region = region;
+    this.credentials = credentials;
   }
 
   async createConfigFile(): Promise<void> {
@@ -57,7 +61,7 @@ export class FcBase {
      *     ]
      *  }
      */
-    this.logger.debug(`${this.configFile} not exist, creating...`, 'yellow');
+    this.logger.debug(`${this.configFile} not exist, creating...`);
 
     const fcConfig = {};
     if (this.serviceConfig) { Object.assign(fcConfig, { service: this.serviceConfig }); }
@@ -69,16 +73,16 @@ export class FcBase {
     const resolvedTriggers = [];
     if (this.triggersConfig) {
       for (const triggerConfig of this.triggersConfig) {
-        const triggerIns = new Trigger(triggerConfig);
+        const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
         const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
         resolvedTriggers.push(resolvedTrigger);
       }
     }
-    Object.assign(fcConfig, { triggers: resolvedTriggers });
+    if (!_.isEmpty(resolvedTriggers)) { Object.assign(fcConfig, { triggers: resolvedTriggers }); }
 
 
     await writeStrToFile(this.configFile, JSON.stringify(fcConfig), 'w', 0o777);
-    this.logger.debug(`${this.configFile} created done!`, 'green');
+    this.logger.debug(`write content: ${JSON.stringify(fcConfig)} to ${this.configFile}`);
   }
 
   async addConfig(assumeYes?: boolean): Promise<void> {
@@ -101,8 +105,7 @@ export class FcBase {
     }
     if (this.functionConfig) {
       const functionIdxInGlobal = functionsInGlobal?.findIndex((f) => f.name === this.functionConfig.name);
-
-      if (functionIdxInGlobal !== undefined && functionIdxInGlobal >= 0) {
+      if (!_.isNil(functionIdxInGlobal) && functionIdxInGlobal >= 0) {
         if (!equal(this.functionConfig, functionsInGlobal[functionIdxInGlobal])) {
           this.logger.warn(`Function ${this.functionConfig.name} already exists in golbal:\n${JSON.stringify(functionsInGlobal[functionIdxInGlobal])}`);
           if (assumeYes || await promptForConfirmContinue('Replace function in pulumi stack with the function in current working directory?')) {
@@ -120,8 +123,10 @@ export class FcBase {
     if (this.triggersConfig) {
       for (const triggerConfig of this.triggersConfig) {
         // The key of fc config file is ${account_id}_${region}_${service}
-        const triggerIns = new Trigger(triggerConfig);
+        this.logger.debug(`current trigger is : ${JSON.stringify(triggerConfig)}`);
+        const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
         const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
+        this.logger.debug(`resolved trigger in pulumi format: ${JSON.stringify(resolvedTrigger)}`);
         const triggerIdxInGlobal = triggersInGlobal?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function && t.service === resolvedTrigger.service);
         if (triggerIdxInGlobal !== undefined && triggerIdxInGlobal >= 0) {
           if (!equal(resolvedTrigger, triggersInGlobal[triggerIdxInGlobal])) {
@@ -142,7 +147,7 @@ export class FcBase {
     if (_.isEmpty(fcConfigToBeWritten.functions)) { delete fcConfigToBeWritten.functions; }
     if (_.isEmpty(fcConfigToBeWritten.triggers)) { delete fcConfigToBeWritten.triggers; }
     await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
-    this.logger.debug(`${this.configFile} update done!`, 'green');
+    this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
   }
 
   async getFunctionNamesInConfigFile(): Promise<string[]> {
@@ -186,7 +191,7 @@ export class FcBase {
 
     if (this.triggersConfig) {
       for (const triggerConfig of this.triggersConfig) {
-        const triggerIns = new Trigger(triggerConfig);
+        const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
         const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
         const triggerIdxInGlobal = triggersInGlobal?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function);
         if (triggerIdxInGlobal !== undefined && triggerIdxInGlobal >= 0) {
@@ -287,7 +292,7 @@ export class FcBase {
       // 删除 yaml 中所有的 trigger
       if (this.triggersConfig) {
         for (const triggerConfig of this.triggersConfig) {
-          const triggerIns = new Trigger(triggerConfig);
+          const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
           const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
           const triggerIdx = triggers?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function && t.service === resolvedTrigger.service);
           if (triggerIdx !== undefined && triggerIdx >= 0) {
@@ -304,7 +309,7 @@ export class FcBase {
       const triggerIdxInYaml = this.triggersConfig?.findIndex((t) => t.name === triggerName);
       if (triggerIdxInYaml !== undefined && triggerIdxInYaml >= 0) {
         const triggerToBeDeleted = this.triggersConfig[triggerIdxInYaml];
-        const triggerIns = new Trigger(triggerToBeDeleted);
+        const triggerIns = new Trigger(triggerToBeDeleted, this.region, this.credentials.AccountID);
         const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
         const triggerIdx = triggers?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function);
         if (triggerIdx !== undefined && triggerIdx >= 0) {

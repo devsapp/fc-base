@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@types/fs-extra": "^9.0.0",
-    "@serverless-devs/core": "0.0.29",
+    "@serverless-devs/core": "^0.0.37",
     "deep-equal": "^2.0.0",
     "@types/lodash": "^4.14.168",
     "@types/uuid": "^8.3.0",

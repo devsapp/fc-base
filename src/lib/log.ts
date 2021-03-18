@@ -7,7 +7,7 @@ export interface LogConfig {
 export interface LogTriggerConfig {
   jobConfig: LogTriggerJobConfig;
   logConfig: LogConfig;
-  sourceConfig?: LogTriggerSourceConfig;
+  sourceConfig: LogTriggerSourceConfig;
   functionParameter?: {
     [key: string]: any;
   };
@@ -15,7 +15,7 @@ export interface LogTriggerConfig {
 }
 
 export function instanceOfLogTriggerConfig(data: any): data is LogTriggerConfig {
-  return 'jobConfig' in data && 'logConfig' in data && 'sourceConfig' in data && 'functionParameter' in data && 'enable' in data;
+  return 'jobConfig' in data && 'logConfig' in data && 'sourceConfig' in data && 'enable' in data;
 }
 
 export interface LogTriggerJobConfig {

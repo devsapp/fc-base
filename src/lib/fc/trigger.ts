@@ -2,15 +2,16 @@ import { OssTriggerConfig, instanceOfOssTriggerConfig } from '../oss';
 import { CdnTriggerConfig, instanceOfCdnTriggerConfig } from '../cdn';
 import { MnsTriggerConfig, instanceOfMnsTriggerConfig } from '../mns';
 import { LogTriggerConfig, instanceOfLogTriggerConfig } from '../log';
-
+import * as core from '@serverless-devs/core';
+import * as _ from 'lodash';
 // TODO: [TableStoreTriggerConfig, RdsTriggerConfig, DomainConfig]
 
 export interface TriggerConfig {
   name: string;
   function: string;
   service: string;
-  type: 'oss' | 'log' | 'timer' | 'http' | 'mnsTopic' | 'cdnEvents';
-  role?: string;
+  type: 'oss' | 'log' | 'timer' | 'http' | 'mns_topic' | 'cdn_events';
+  role: string;
   sourceArn?: string;
   config: OssTriggerConfig | LogTriggerConfig | TimerTriggerConfig | HttpTriggerConfig | MnsTriggerConfig | CdnTriggerConfig;
 }
@@ -18,10 +19,10 @@ export interface TriggerConfig {
 export interface TimerTriggerConfig {
   cronExpression: string;
   enable: boolean;
-  payload: string;
+  payload?: string;
 }
 export function instanceOfTimerTriggerConfig(data: any): data is TimerTriggerConfig {
-  return 'cronExpression' in data && 'enable' in data && 'payload' in data;
+  return 'cronExpression' in data && 'enable' in data;
 }
 
 export interface HttpTriggerConfig {
@@ -33,11 +34,16 @@ export function instanceOfHttpTriggerConfig(data: any): data is HttpTriggerConfi
 }
 
 export class Trigger {
+  @core.HLogger('FC_BASE') logger: core.ILogger;
+
   readonly triggerConfig: TriggerConfig;
   readonly region: string;
   readonly accountId: string;
-  constructor(triggerConfig: TriggerConfig) {
+  constructor(triggerConfig: TriggerConfig, region: string, accountId: string) {
     this.triggerConfig = triggerConfig;
+
+    this.region = region;
+    this.accountId = accountId;
   }
 
   resolveTriggerIntoPulumiFormat(): any {
@@ -61,23 +67,23 @@ export class Trigger {
       service: this.triggerConfig.service,
       type: this.triggerConfig.type,
     });
-    if (this.triggerConfig.role) {
-      Object.assign(res, {
-        role: this.triggerConfig.role,
-      });
-    }
-    let { sourceArn } = this.triggerConfig;
-    if (!this.triggerConfig.sourceArn) {
-      sourceArn = this.getSourceArn();
-    }
-    if (sourceArn) {
-      Object.assign(res, {
-        sourceArn,
-      });
-    }
-    const triggerConfigInPulumiFormat = this.getTriggerConfigInPulumiFormat();
 
-    if (this.triggerConfig.type === 'mnsTopic') {
+    Object.assign(res, {
+      role: this.triggerConfig.role,
+    });
+
+    if (!_.isNil(this.triggerConfig.sourceArn)) {
+      Object.assign(res, {
+        sourceArn: this.triggerConfig.sourceArn,
+      });
+    } else {
+      Object.assign(res, {
+        sourceArn: this.getSourceArn(),
+      });
+    }
+
+    const triggerConfigInPulumiFormat = this.getTriggerConfigInPulumiFormat();
+    if (this.triggerConfig.type === 'mns_topic') {
       Object.assign(res, { configMns: triggerConfigInPulumiFormat });
     } else {
       Object.assign(res, { config: triggerConfigInPulumiFormat });
@@ -87,17 +93,21 @@ export class Trigger {
 
   getTriggerConfigInPulumiFormat(): string {
     const { config } = this.triggerConfig;
-    let res = {};
+    let res: {[key: string]: any} = {};
     switch (this.triggerConfig.type) {
       case 'log': {
         if (instanceOfLogTriggerConfig(config)) {
-          res = config;
+          res = { ...config };
+          delete res.enable;
+          Object.assign(res, {
+            Enable: config.enable,
+          });
           break;
         } else {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
       }
-      case 'cdnEvents': {
+      case 'cdn_events': {
         if (instanceOfCdnTriggerConfig(config)) {
           res = config;
           break;
@@ -105,7 +115,7 @@ export class Trigger {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
       }
-      case 'mnsTopic': {
+      case 'mns_topic': {
         if (instanceOfMnsTriggerConfig(config)) {
           // notifyContentFormat default 'STREAM'
           // notifyStrategy defalut 'BACKOFF_RETRY'
@@ -169,14 +179,14 @@ export class Trigger {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
       }
-      case 'cdnEvents': {
+      case 'cdn_events': {
         if (instanceOfCdnTriggerConfig(config)) {
           return `acs:cdn:*:${this.accountId}`;
         } else {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
       }
-      case 'mnsTopic': {
+      case 'mns_topic': {
         if (instanceOfMnsTriggerConfig(config)) {
           let mnsArnRegion = this.region;
           if (config.region) {

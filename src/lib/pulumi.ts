@@ -1,6 +1,6 @@
 import path from 'path';
 import * as fse from 'fs-extra';
-import { Logger, IV1Inputs } from '@serverless-devs/core';
+import { Logger } from '@serverless-devs/core';
 
 const PULUMI_CODE_DIR: string = path.join(__dirname, 'utils', 'pulumi');
 const PULUMI_CODE_FILE: string = path.join(PULUMI_CODE_DIR, 'index.js');
@@ -15,19 +15,14 @@ export async function cpPulumiCodeFiles(targetDir) {
   Logger.debug('FC-BASE', `Copy files under ${PULUMI_CODE_DIR} to ${targetDir} done.`);
 }
 
-export function genPulumiInputs(credentials: any, project: any, stackId: string, region: string, pulumiStackDirOfService: string): IV1Inputs {
-  const inputs = Object.assign({}, {
-    Credentials: credentials,
-    Project: project,
-    Properties: {
-      region,
-      projectName: stackId,
-      stackName: stackId,
-      workDir: pulumiStackDirOfService,
-      runtime: 'nodejs',
-      cloudPlatform: 'alicloud',
-    },
+export function genPulumiComponentProp(stackId: string, region: string, pulumiStackDirOfService: string): {[key: string]: any} {
+  const prop = Object.assign({}, {
+    region,
+    projectName: stackId,
+    stackName: stackId,
+    workDir: pulumiStackDirOfService,
+    runtime: 'nodejs',
+    cloudPlatform: 'alicloud',
   });
-
-  return inputs;
+  return prop;
 }

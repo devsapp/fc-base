@@ -1,6 +1,6 @@
 demo1:
-  Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
-  # Component: fc-base
+  # Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
+  Component: fc-base
   Provider: alibaba
   Access: default
   Properties:
@@ -9,7 +9,7 @@ demo1:
       name: qianfeng-fc-base-component-service
       description: 'this is a test'
       internetAccess: true
-      role: acs:ram::xxx:role/aliyunfcgeneratedrole-cn-shenzhen-vpc-service
+      role: acs:ram::xxx:role/qianfeng-fc-base-role
       vpcConfig:
         vswitchIds:
           - xxx
