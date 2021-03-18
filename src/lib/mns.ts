@@ -8,5 +8,5 @@ export interface MnsTriggerConfig {
 }
 
 export function instanceOfMnsTriggerConfig(data: any): data is MnsTriggerConfig {
-  return 'topicName' in data && 'region' in data && 'notifyContentFormat' in data && 'notifyStrategy' in data && 'filterTag' in data;
+  return 'topicName' in data;
 }

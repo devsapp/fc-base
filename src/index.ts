@@ -4,12 +4,16 @@ import * as fse from 'fs-extra';
 import * as core from '@serverless-devs/core';
 import { FcBase } from './lib/fc/fc-base';
 import { genStackId, ServiceConfig } from './lib/fc/service';
-import { cpPulumiCodeFiles, genPulumiInputs } from './lib/pulumi';
-
+import { cpPulumiCodeFiles, genPulumiComponentProp } from './lib/pulumi';
+import { genComponentInputs } from './lib/component';
 import { FunctionConfig } from './lib/fc/function';
-import { TriggerConfig } from './lib/fc/trigger';
+import { TriggerConfig, instanceOfTimerTriggerConfig, instanceOfHttpTriggerConfig } from './lib/fc/trigger';
 import * as shell from 'shelljs';
 import { promptForConfirmContinue } from './lib/init/prompt';
+import { instanceOfLogTriggerConfig } from './lib/log';
+import { instanceOfCdnTriggerConfig } from './lib/cdn';
+import { instanceOfOssTriggerConfig } from './lib/oss';
+import { instanceOfMnsTriggerConfig } from './lib/mns';
 
 const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
 const SUPPORTED_REMOVE_ARGS = ['service', 'function', 'trigger'];
@@ -37,14 +41,56 @@ export default class FcBaseComponent {
     }
 
     if (triggersConfig) {
-      for (const trigger of triggersConfig) {
+      for (const triggerConfig of triggersConfig) {
         let errorInfo: string;
-        if (trigger.function !== functionConfig.name) {
-          errorInfo = `Trigger ${trigger.name} is not under function: ${functionConfig.name}`;
+        if (triggerConfig.function !== functionConfig.name) {
+          errorInfo = `Trigger ${triggerConfig.name} is not under function: ${functionConfig.name}`;
         }
-        if (trigger.service !== serviceConfig.name) {
-          const info = `Trigger ${trigger.name} is not under service: ${serviceConfig.name}`;
+        if (triggerConfig.service !== serviceConfig.name) {
+          const info = `Trigger ${triggerConfig.name} is not under service: ${serviceConfig.name}`;
           errorInfo = errorInfo ? `${errorInfo}\n${info}` : info;
+        }
+        const { config } = triggerConfig;
+        switch (triggerConfig.type) {
+          case 'log': {
+            if (!instanceOfLogTriggerConfig(config)) {
+              errorInfo = `config: ${JSON.stringify(config)} is not for ${triggerConfig.type} trigger`;
+            }
+            break;
+          }
+          case 'cdn_events': {
+            if (!instanceOfCdnTriggerConfig(config)) {
+              errorInfo = `config: ${JSON.stringify(config)} is not for ${triggerConfig.type} trigger`;
+            }
+            break;
+          }
+          case 'mns_topic': {
+            if (!instanceOfMnsTriggerConfig(config)) {
+              errorInfo = `config: ${JSON.stringify(config)} is not for ${triggerConfig.type} trigger`;
+            }
+            break;
+          }
+          case 'oss': {
+            if (!instanceOfOssTriggerConfig(config)) {
+              errorInfo = `config: ${JSON.stringify(config)} is not for ${triggerConfig.type} trigger`;
+            }
+            break;
+          }
+          case 'timer': {
+            if (!instanceOfTimerTriggerConfig(config)) {
+              errorInfo = `config: ${JSON.stringify(config)} is not for ${triggerConfig.type} trigger`;
+            }
+            break;
+          }
+          case 'http': {
+            if (!instanceOfHttpTriggerConfig(config)) {
+              errorInfo = `config: ${JSON.stringify(config)} is not for ${triggerConfig.type} trigger`;
+            }
+            break;
+          }
+          default: {
+            throw new Error(`Trigger type: ${triggerConfig.type} is not supported now`);
+          }
         }
         if (errorInfo) {
           this.logger.error(errorInfo);
@@ -58,14 +104,12 @@ export default class FcBaseComponent {
   // 解析入参
   async handlerInputs(inputs) {
     const project = inputs?.project || inputs?.Project;
-    // const projectName = inputs?.project?.projectName || inputs?.project?.ProjectName || inputs?.Project?.projectName || inputs?.Project?.ProjectName;
     const properties = inputs?.properties || inputs?.Properties;
-    // const credentials = inputs?.Credentials;
     const provider = project?.Provider || project?.provider;
     const accessAlias = project?.AccessAlias || project?.accessAlias;
     const credentials = await core.getCredential(provider, accessAlias || '');
     const args = inputs?.Args || inputs?.args;
-
+    const projectName: string = project.projectName || project.ProjectName;
 
     const serviceConfig: ServiceConfig = properties?.service;
     const functionConfig: FunctionConfig = properties?.function;
@@ -80,6 +124,8 @@ export default class FcBaseComponent {
     // this.id = `${credentials.AccountID}_${region}_${serviceName}`;
 
     return {
+      projectName,
+      accessAlias,
       project,
       properties,
       credentials,
@@ -93,7 +139,8 @@ export default class FcBaseComponent {
 
   async deploy(inputs): Promise<any> {
     const {
-      project,
+      projectName,
+      accessAlias,
       credentials,
       serviceConfig,
       functionConfig,
@@ -103,6 +150,7 @@ export default class FcBaseComponent {
     } = await this.handlerInputs(inputs);
 
     const stackId = genStackId(credentials.AccountID, region, serviceConfig.name);
+    this.logger.debug(`generated stack id: ${stackId}`);
     const parsedArgs = core.commandParse({ args }, { boolean: ['y', 'assumeYes'] });
     // @ts-ignore
     const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
@@ -132,21 +180,23 @@ export default class FcBaseComponent {
      *   3. 将已有的 package.json 以及 index.ts 复制至缓存文件夹中
      *   4. 安装依赖
      */
-
+    this.logger.info('waiting for preparing for pulumi resource list...');
     const pulumiStackDirOfService = path.join(PULUMI_CACHE_DIR, stackId);
     this.logger.debug(`Ensuring ${pulumiStackDirOfService}...`);
     await fse.ensureDir(pulumiStackDirOfService, 0o777);
     const fcConfigJsonFile = path.join(pulumiStackDirOfService, 'fc-config.json');
 
-    const fcBaseIns = new FcBase(functionConfig, serviceConfig, triggersConfig, fcConfigJsonFile);
+    const fcBaseIns = new FcBase(serviceConfig, region, credentials, functionConfig, triggersConfig, fcConfigJsonFile);
 
     await fcBaseIns.addConfigToJsonFile(assumeYes);
 
     await cpPulumiCodeFiles(pulumiStackDirOfService);
     shell.exec(`cd ${pulumiStackDirOfService} && npm i`, { silent: true });
+    this.logger.info('pulumi resource list is prepared.');
     // 部署 fc 资源
-    const pulumiComponentIns = await core.load('pulumi-alibaba', 'alibaba');
-    const pulumiInputs = genPulumiInputs(credentials, project, stackId, region, pulumiStackDirOfService);
+    const pulumiComponentIns = await core.load('alibaba/pulumi-alibaba');
+    const pulumiComponentProp = genPulumiComponentProp(stackId, region, pulumiStackDirOfService);
+    const pulumiInputs = genComponentInputs(credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp);
     const upRes = await pulumiComponentIns.up(pulumiInputs);
     if (upRes.stderr && upRes.stderr !== '') {
       this.logger.error(`deploy error: ${upRes.stderr}`);
@@ -158,7 +208,8 @@ export default class FcBaseComponent {
 
   async remove(inputs): Promise<any> {
     const {
-      project,
+      projectName,
+      accessAlias,
       credentials,
       serviceConfig,
       functionConfig,
@@ -170,7 +221,7 @@ export default class FcBaseComponent {
     const stackId = genStackId(credentials.AccountID, region, serviceConfig.name);
     const pulumiStackDirOfService = path.join(PULUMI_CACHE_DIR, stackId);
     const fcConfigJsonFile = path.join(pulumiStackDirOfService, 'fc-config.json');
-    const fcBaseIns = new FcBase(functionConfig, serviceConfig, triggersConfig, fcConfigJsonFile);
+    const fcBaseIns = new FcBase(serviceConfig, region, credentials, functionConfig, triggersConfig, fcConfigJsonFile);
 
     const parsedArgs = core.commandParse({ args }, { boolean: ['y', 'assumeYes'] });
     // @ts-ignore
@@ -195,10 +246,13 @@ export default class FcBaseComponent {
       return;
     }
 
-    const pulumiComponentIns = await core.load('pulumi-alibaba', 'alibaba');
-    const pulumiInputs = genPulumiInputs(credentials, project, stackId, region, pulumiStackDirOfService);
+    const pulumiComponentIns = await core.load('alibaba/pulumi-alibaba');
+    const pulumiComponentProp = genPulumiComponentProp(stackId, region, pulumiStackDirOfService);
+    const pulumiInputs = genComponentInputs(credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp);
+
     let pulumiRes;
     if (nonOptionsArg === 'service') {
+      this.logger.info(`waiting for service: ${serviceConfig.name} to be removed`);
       const fcFunctions = await fcBaseIns.getFunctionNamesInConfigFile();
       if (assumeYes || !fcFunctions || fcFunctions.length === 0 || await promptForConfirmContinue(`Remove service: ${serviceConfig.name} and functions: [${fcFunctions}] belonging to it?`)) {
         // destroy
@@ -211,21 +265,25 @@ export default class FcBaseComponent {
           await fse.unlink(fcConfigJsonFile);
         }
       } else {
-        return 'remove service canceled';
+        this.logger.info(`cancel removing service ${serviceConfig.name}`);
+        return;
       }
     } else if (nonOptionsArg === 'function') {
+      this.logger.info(`waiting for service: ${functionConfig.name} to be removed`);
       const fcTriggers = await fcBaseIns.getTriggerNamesInConfigFile();
       if (assumeYes || !fcTriggers || fcTriggers.length === 0 || await promptForConfirmContinue(`Remove function: ${functionConfig.name} and triggers: [${fcTriggers}] belonging to it?`)) {
         // update
         await fcBaseIns.delFunctionConfigInConfigFile();
         pulumiRes = await pulumiComponentIns.up(pulumiInputs);
       } else {
-        return 'remove function canceled';
+        this.logger.info(`cancel removing function ${functionConfig.name}`);
+        return;
       }
     } else if (nonOptionsArg === 'trigger') {
       // update
       // @ts-ignore
       const triggerName = parsedArgs.data?.n || parsedArgs.data?.name || undefined;
+      this.logger.info(`waiting for triggers ${triggerName || ''} to be removed`);
       await fcBaseIns.delTriggerConfigInConfigFile(triggerName);
       pulumiRes = await pulumiComponentIns.up(pulumiInputs);
     }

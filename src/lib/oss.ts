@@ -2,12 +2,12 @@
 export interface OssTriggerConfig {
   bucketName: string;
   events: string[];
-  filter: filterConfig;
+  filter: FilterConfig;
 }
 export function instanceOfOssTriggerConfig(data: any): data is OssTriggerConfig {
   return 'bucketName' in data && 'events' in data && 'filter' in data;
 }
-export interface filterConfig {
+export interface FilterConfig {
   Key: {
     Prefix: string;
     Suffix: string;
