@@ -12,14 +12,14 @@ demo1:
       role: acs:ram::xxx:role/qianfeng-fc-base-role
       vpcConfig:
         vswitchIds:
-          - xxx
-        securityGroupId: xxx
+          - ${Env(vswitchId)}
+        securityGroupId: ${Env(securityGruopId)}
       nasConfig:
         userId: -1
         groupId: -1
         mountPoints:
-          - serverAddr: xxx.cn-hangzhou.nas.aliyuncs.com:/mnt
+          - serverAddr: ${Env(nasServerAddr)}
             mountDir: /mnt/auto
       logConfig:
-        project: ml-test
-        logstore: fc-log
+        project: ${Env(logproject)}
+        logstore: ${Env(logstore)}

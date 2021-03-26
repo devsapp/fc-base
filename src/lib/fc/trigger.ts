@@ -2,14 +2,15 @@ import { OssTriggerConfig, instanceOfOssTriggerConfig } from '../oss';
 import { CdnTriggerConfig, instanceOfCdnTriggerConfig } from '../cdn';
 import { MnsTriggerConfig, instanceOfMnsTriggerConfig } from '../mns';
 import { LogTriggerConfig, instanceOfLogTriggerConfig } from '../log';
-import * as core from '@serverless-devs/core';
 import * as _ from 'lodash';
-// TODO: [TableStoreTriggerConfig, RdsTriggerConfig, DomainConfig]
+import { FcBase } from './fc-base';
+import { ICredentials } from '../profile';
+// TODO: [TableStoreTriggerConfig, RdsTriggerConfig, DomainConfig, apiGateway]
 
 export interface TriggerConfig {
   name: string;
-  function: string;
-  service: string;
+  function?: string;
+  service?: string;
   type: 'oss' | 'log' | 'timer' | 'http' | 'mns_topic' | 'cdn_events';
   role: string;
   sourceArn?: string;
@@ -33,17 +34,92 @@ export function instanceOfHttpTriggerConfig(data: any): data is HttpTriggerConfi
   return 'authType' in data && 'methods' in data;
 }
 
-export class Trigger {
-  @core.HLogger('FC_BASE') logger: core.ILogger;
-
+export class FcTrigger extends FcBase {
   readonly triggerConfig: TriggerConfig;
-  readonly region: string;
-  readonly accountId: string;
-  constructor(triggerConfig: TriggerConfig, region: string, accountId: string) {
-    this.triggerConfig = triggerConfig;
+  resolvedTriggerConfig: {[key: string]: any};
+  readonly serviceName: string;
+  readonly functionName?: string;
 
-    this.region = region;
-    this.accountId = accountId;
+  static keyInConfigFile = 'trigger';
+  static keyInResource = 'name';
+  static configFileName = 'fc-trigger.json';
+
+  constructor(triggerConfig: TriggerConfig, credentials: ICredentials, region: string, serviceName: string, functionName?: string) {
+    super(region, credentials);
+    this.triggerConfig = triggerConfig;
+    this.resolvedTriggerConfig = this.resolveTriggerIntoPulumiFormat();
+    this.serviceName = serviceName;
+    if (!_.isNil(functionName)) { this.functionName = functionName; }
+  }
+
+  validateConfig(): void {
+    const { config } = this.triggerConfig;
+    let isTriggerTypeNotMatched = false;
+    switch (this.triggerConfig.type) {
+      case 'log': {
+        if (!instanceOfLogTriggerConfig(config)) {
+          isTriggerTypeNotMatched = true;
+        }
+        break;
+      }
+      case 'cdn_events': {
+        if (!instanceOfCdnTriggerConfig(config)) {
+          isTriggerTypeNotMatched = true;
+        }
+        break;
+      }
+      case 'mns_topic': {
+        if (!instanceOfMnsTriggerConfig(config)) {
+          isTriggerTypeNotMatched = true;
+        }
+        break;
+      }
+      case 'oss': {
+        if (!instanceOfOssTriggerConfig(config)) {
+          isTriggerTypeNotMatched = true;
+        }
+        break;
+      }
+      case 'timer': {
+        if (!instanceOfTimerTriggerConfig(config)) {
+          isTriggerTypeNotMatched = true;
+        }
+        break;
+      }
+      case 'http': {
+        if (!instanceOfHttpTriggerConfig(config)) {
+          isTriggerTypeNotMatched = true;
+        }
+        break;
+      }
+      default: {
+        throw new Error(`Trigger type: ${this.triggerConfig.type} is not supported now`);
+      }
+    }
+    if (isTriggerTypeNotMatched) { throw new Error(`trigger config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`); }
+
+    if (_.isNil(this.serviceName) && _.isNil(this.triggerConfig.service)) {
+      throw new Error('Please add serviceConfig in your serverless service or service attribute in your triggerConfig');
+    }
+    if (_.isNil(this.functionName) && _.isNil(this.triggerConfig.function)) {
+      throw new Error('Please add functionConfig in your serverless service or function attribute in your triggerConfig');
+    }
+
+    if (!_.isNil(this.serviceName) && _.isNil(this.triggerConfig.service)) {
+      this.resolvedTriggerConfig.service = this.serviceName;
+    } else if (!_.isNil(this.serviceName) && !_.isNil(this.triggerConfig.service) && this.serviceName !== this.triggerConfig.service) {
+      throw new Error(`Please make service attribute of trigger: ${this.triggerConfig.name} consistent with serviceName in serviceConfig`);
+    }
+
+    if (!_.isNil(this.functionName) && _.isNil(this.triggerConfig.function)) {
+      this.resolvedTriggerConfig.function = this.functionName;
+    } else if (!_.isNil(this.functionName) && !_.isNil(this.triggerConfig.function) && this.functionName !== this.triggerConfig.function) {
+      throw new Error(`Please make function attribute of trigger: ${this.triggerConfig.name} consistent with functionName in serviceConfig`);
+    }
+  }
+
+  initTriggerConfigFileAttr(): void {
+    this.initConfigFileAttr(this.serviceName, FcTrigger.configFileName);
   }
 
   resolveTriggerIntoPulumiFormat(): any {
@@ -61,6 +137,7 @@ export class Trigger {
           type: string;
      *  }
      */
+    if (_.isEmpty(this.triggerConfig)) { return {}; }
     const res = Object.assign({}, {
       name: this.triggerConfig.name,
       function: this.triggerConfig.function,
@@ -174,14 +251,14 @@ export class Trigger {
     switch (this.triggerConfig.type) {
       case 'log': {
         if (instanceOfLogTriggerConfig(config)) {
-          return `acs:log:${this.region}:${this.accountId}:project/${config.logConfig.project}`;
+          return `acs:log:${this.region}:${this.credentials.AccountID}:project/${config.logConfig.project}`;
         } else {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
       }
       case 'cdn_events': {
         if (instanceOfCdnTriggerConfig(config)) {
-          return `acs:cdn:*:${this.accountId}`;
+          return `acs:cdn:*:${this.credentials.AccountID}`;
         } else {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
@@ -192,14 +269,14 @@ export class Trigger {
           if (config.region) {
             mnsArnRegion = config.region;
           }
-          return `acs:mns:${mnsArnRegion}:${this.accountId}:/topics/${config.topicName}`;
+          return `acs:mns:${mnsArnRegion}:${this.credentials.AccountID}:/topics/${config.topicName}`;
         } else {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
       }
       case 'oss': {
         if (instanceOfOssTriggerConfig(config)) {
-          return `acs:oss:${this.region}:${this.accountId}:${config.bucketName}`;
+          return `acs:oss:${this.region}:${this.credentials.AccountID}:${config.bucketName}`;
         } else {
           throw new Error(`config: ${JSON.stringify(config)} is not for ${this.triggerConfig.type} trigger`);
         }
@@ -212,4 +289,68 @@ export class Trigger {
       }
     }
   }
+
+  async delTriggerInConfFile(): Promise<boolean> {
+    return await this.delResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name');
+  }
+
+
+  async addTriggerInConfFile(assumeYes?: boolean) {
+    await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name', assumeYes);
+  }
+
+  // async addConfig(assumeYes?: boolean): Promise<void> {
+  //   this.logger.debug(`${this.configFile} exists, updating...`);
+
+  //   const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
+  //   let triggersInGlobal = fcConfigInGlobal?.triggers;
+
+  //   if (this.resolvedTriggerConfig) {
+  //     const idxInGlobal = triggersInGlobal?.findIndex((t) => t.name === this.resolvedTriggerConfig.name);
+  //     if (!_.isNil(idxInGlobal) && idxInGlobal >= 0) {
+  //       if (!equal(this.resolvedTriggerConfig, triggersInGlobal[idxInGlobal])) {
+  //         this.logger.warn(`Function ${this.functionConfig.name} already exists in golbal:\n${JSON.stringify(triggersInGlobal[idxInGlobal])}`);
+  //         if (assumeYes || await promptForConfirmContinue('Replace trigger in pulumi stack with the trigger in current working directory?')) {
+  //           // replace function
+  //           triggersInGlobal[idxInGlobal] = this.resolvedTriggerConfig;
+  //         }
+  //       }
+  //     } else {
+  //       triggersInGlobal.push(this.resolvedTriggerConfig);
+  //     }
+  //   }
+  //   const fcConfigToBeWritten = Object.assign({}, {
+  //     triggers: triggersInGlobal
+  //   })
+
+  //   // overwrite file
+  //   await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+  //   this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
+  // }
+
+
+  // async delConfig(): Promise<void> {
+  //   // 更新函数配置文件
+  //   if (await this.configFileExists()) {
+  //     const configInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
+  //     if (!_.isEmpty(configInGlobal?.triggers)) {
+  //       const triggers = this.delReource<any>(this.resolvedTriggerConfig, configInGlobal?.triggers, 'name');
+  //       // 删除完后没有函数了，则删除文件
+  //       if (_.isEmpty(triggers)) {
+  //         await fse.unlink(this.configFile);
+  //         this.logger.debug(`no trigger left after remove function: ${this.functionConfig.name}`);
+  //       } else {
+  //         const fcConfigToBeWritten = Object.assign({}, {
+  //           triggers
+  //         });
+  //         await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+  //         this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
+  //       }
+  //     } else {
+  //       throw new Error(`There is no function under service: ${this.serviceConfig.name}`);
+  //     }
+  //   } else {
+  //     throw new Error('Please deploy resource first.');
+  //   }
+  // }
 }

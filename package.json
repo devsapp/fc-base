@@ -6,13 +6,11 @@
     "@serverless-devs/core": "^0.0.37",
     "deep-equal": "^2.0.0",
     "@types/lodash": "^4.14.168",
-    "@types/uuid": "^8.3.0",
     "colors": "^1.4.0",
     "@types/progress": "^2.0.3",
     "@types/archiver": "^5.1.0",
     "@types/inquirer": "^7.3.1",
-    "shelljs": "^0.8.4",
-    "command-exists": "^1.2.9"
+    "proper-lockfile": "^4.1.2"
   },
   "devDependencies": {
     "@types/eslint": "^7.2.6",
