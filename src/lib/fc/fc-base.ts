@@ -1,336 +1,244 @@
-import { FunctionConfig } from './function';
-import { ServiceConfig } from './service';
 import * as fse from 'fs-extra';
 import { isFile, writeStrToFile } from '../file';
 import { HLogger, ILogger } from '@serverless-devs/core';
 import equal from 'deep-equal';
 import { promptForConfirmContinue } from '../init/prompt';
-import { TriggerConfig, Trigger } from './trigger';
+import { ICredentials } from '../profile';
 import * as _ from 'lodash';
 import * as path from 'path';
+import * as os from 'os';
+import { execSync } from 'child_process';
 
-export class FcBase {
+const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
+const PULUMI_CODE_DIR: string = path.join(path.resolve(__dirname, '..'), 'utils', 'pulumi');
+const PULUMI_CODE_FILE: string = path.join(PULUMI_CODE_DIR, 'index.js');
+const PULUMI_PACKAGE_FILE: string = path.join(PULUMI_CODE_DIR, 'package.json');
+const PULUMI_PACKAGE_LOCK_FILE: string = path.join(PULUMI_CODE_DIR, 'package-lock.json');
+export abstract class FcBase {
   @HLogger('FC-BASE') logger: ILogger;
 
-  readonly functionConfig?: FunctionConfig;
-  readonly serviceConfig: ServiceConfig;
-  readonly triggersConfig?: TriggerConfig[];
-  readonly configFile?: string;
-  readonly credentials: {[key: string]: any};
+  stackID?: string;
+  pulumiStackDir: string;
+  configFile?: string;
+  readonly credentials: ICredentials;
   readonly region: string;
 
-  constructor(serviceConfig: ServiceConfig, region: string, credentials: {[key: string]: any}, functionConfig?: FunctionConfig, triggersConfig?: TriggerConfig[], configFile?: string) {
-    this.functionConfig = functionConfig;
-    // resolve filename
-    if (!_.isNil(this.functionConfig?.filename)) {
-      Object.assign(this.functionConfig, {
-        filename: path.resolve(this.functionConfig?.filename),
-      });
-    }
-    this.serviceConfig = serviceConfig;
-    this.triggersConfig = triggersConfig;
-    this.configFile = configFile;
+  constructor(region: string, credentials: ICredentials) {
     this.region = region;
     this.credentials = credentials;
   }
 
-  async createConfigFile(): Promise<void> {
+  genStackID(serviceName: string): string {
+    return `${this.credentials.AccountID}_${this.region}_${serviceName}`;
+  }
+
+  initConfigFileAttr(serviceName: string, filename: string): void {
+    this.stackID = this.genStackID(serviceName);
+    this.pulumiStackDir = path.join(PULUMI_CACHE_DIR, this.stackID);
+    this.configFile = path.join(this.pulumiStackDir, filename);
+  }
+
+  delReource<T>(resource: T, resources: T[], key: string): T[] {
+    if (!resources) { return undefined; }
+    const idx = resources?.findIndex((r) => r[key] === resource[key]);
+    if (idx !== undefined && idx >= 0) {
+      this.logger.debug(`deleting ${resource[key]} with idx: ${idx}`);
+      resources.splice(idx, 1);
+      return resources;
+    }
+
+    // throw new Error(`${resource[key]} dose not exist in local pulumi stack.`);
+
+    return undefined;
+  }
+
+  pulumiStackDirCheck() {
+    if (_.isNil(this.pulumiStackDir)) {
+      throw new Error('empty pulumiStackDir atttibute');
+    }
+  }
+
+  async delResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string): Promise<boolean> {
+    // 更新资源配置文件
+    if (await this.configFileExists()) {
+      const configInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
+      if (!_.isEmpty(configInGlobal[keyInConfFile])) {
+        const resources = this.delReource<T>(resource, configInGlobal[keyInConfFile], keyInResource);
+        if (resources === undefined) {
+          // 资源在 pulumi stack 中不存在
+          this.logger.warn(`${JSON.stringify(resource)} dose not exist in local pulumi stack.`);
+          return false;
+        }
+        // 删除完后没有资源了，则删除文件
+        if (_.isEmpty(resources)) {
+          await fse.unlink(this.configFile);
+          this.logger.debug(`no resource left after remove ${keyInConfFile}`);
+        } else {
+          const fcConfigToBeWritten = Object.assign({}, {
+            [keyInConfFile]: resources,
+          });
+          await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+          this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
+        }
+        return true;
+      } else {
+        this.logger.warn(`empty resource ${keyInConfFile} in local pulumi stack, removing the file.`);
+        await fse.unlink(this.configFile);
+        return false;
+        // throw new Error(`There is no ${keyInConfFile} in local pulumi stack`);
+      }
+    } else {
+      this.logger.warn('there is no resource in pulumi stack');
+      return false;
+      // throw new Error('Please deploy resource first.');
+    }
+  }
+
+  async createConfFile<T>(resource: T, keyInConfFile: string): Promise<void> {
     /**
-     * format of fcConfigFile(json format):
+     * format of File(json format):
      *  {
-     *    "service": {
-     *      [key: string]: any
-     *    },
-     *     "functions": [
-     *       {
-     *         [key: string]: any
-     *       },
-     *       {
-     *         [key: string]: any
-     *       },
-     *       ......
-     *     ],
-     *     "triggers": [
-     *       {
-     *         [key: string]: any
-     *       },
-     *       {
-     *         [key: string]: any
-     *       },
-     *       ......
-     *     ]
+     *    [keyInConfFile]: [
+     *      {
+     *        [key: string]: any
+     *      },
+     *      {
+     *        [key: string]: any
+     *      }
+     *    ]
      *  }
-     */
+    */
     this.logger.debug(`${this.configFile} not exist, creating...`);
 
-    const fcConfig = {};
-    if (this.serviceConfig) { Object.assign(fcConfig, { service: this.serviceConfig }); }
-    if (this.functionConfig) {
-      const functions: FunctionConfig[] = [];
-      functions.push(this.functionConfig);
-      Object.assign(fcConfig, { functions });
+    const conf = {};
+    if (_.isEmpty(resource)) {
+      this.logger.error('empty trigger Config in FcTrigger instance');
+      return;
     }
-    const resolvedTriggers = [];
-    if (this.triggersConfig) {
-      for (const triggerConfig of this.triggersConfig) {
-        const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
-        const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
-        resolvedTriggers.push(resolvedTrigger);
-      }
-    }
-    if (!_.isEmpty(resolvedTriggers)) { Object.assign(fcConfig, { triggers: resolvedTriggers }); }
-
-
-    await writeStrToFile(this.configFile, JSON.stringify(fcConfig), 'w', 0o777);
-    this.logger.debug(`write content: ${JSON.stringify(fcConfig)} to ${this.configFile}`);
+    const resources: T[] = [];
+    resources.push(resource);
+    Object.assign(conf, {
+      [keyInConfFile]: resources,
+    });
+    await writeStrToFile(this.configFile, JSON.stringify(conf), 'w', 0o777);
+    this.logger.debug(`write content: ${JSON.stringify(conf)} to ${this.configFile}`);
   }
 
-  async addConfig(assumeYes?: boolean): Promise<void> {
-    this.logger.debug(`${this.configFile} exists, updating...`, 'yellow');
+  async updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean): Promise<void> {
+    if (_.isEmpty(resource)) {
+      this.logger.warn(`empty ${keyInConfFile} resource`);
+      return;
+    }
+    this.logger.debug(`${this.configFile} exists, updating...`);
 
     const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
-    const serviceInGlobal = fcConfigInGlobal?.service;
-    const functionsInGlobal = fcConfigInGlobal?.functions || [];
-    const triggersInGlobal = fcConfigInGlobal?.triggers || [];
-
-    const fcConfigToBeWritten = fcConfigInGlobal;
-    if (this.serviceConfig) {
-      if (!equal(serviceInGlobal, this.serviceConfig)) {
-        this.logger.warn(`Service ${this.serviceConfig.name} already exists in golbal:\n${JSON.stringify(serviceInGlobal)}.`);
-        if (assumeYes || await promptForConfirmContinue('Replace service in pulumi stack with the service in current working directory?')) {
-          // replace service
-          fcConfigToBeWritten.service = this.serviceConfig;
-        }
-      }
-    }
-    if (this.functionConfig) {
-      const functionIdxInGlobal = functionsInGlobal?.findIndex((f) => f.name === this.functionConfig.name);
-      if (!_.isNil(functionIdxInGlobal) && functionIdxInGlobal >= 0) {
-        if (!equal(this.functionConfig, functionsInGlobal[functionIdxInGlobal])) {
-          this.logger.warn(`Function ${this.functionConfig.name} already exists in golbal:\n${JSON.stringify(functionsInGlobal[functionIdxInGlobal])}`);
-          if (assumeYes || await promptForConfirmContinue('Replace function in pulumi stack with the function in current working directory?')) {
-            // replace function
-            functionsInGlobal[functionIdxInGlobal] = this.functionConfig;
-          }
+    const resourcesInGlobal = fcConfigInGlobal[keyInConfFile];
+    let isResourcesInGlobalChanged = true;
+    const idxInGlobal = resourcesInGlobal?.findIndex((r) => r[keyInResource] === resource[keyInResource]);
+    if (!_.isNil(idxInGlobal) && idxInGlobal >= 0) {
+      this.logger.debug(`find resource: ${JSON.stringify(resource)} in pulumi stack`);
+      if (!equal(JSON.parse(JSON.stringify(resource)), resourcesInGlobal[idxInGlobal])) {
+        this.logger.warn(`${keyInConfFile}: ${resource[keyInResource]} already exists in golbal:\n${JSON.stringify(resourcesInGlobal[idxInGlobal])}`);
+        if (assumeYes || await promptForConfirmContinue(`Replace ${keyInConfFile} in pulumi stack with the ${keyInConfFile} in current working directory?`)) {
+          // replace function
+          resourcesInGlobal[idxInGlobal] = resource;
+        } else {
+          isResourcesInGlobalChanged = false;
         }
       } else {
-        functionsInGlobal.push(this.functionConfig);
+        isResourcesInGlobalChanged = false;
       }
+    } else {
+      this.logger.debug(`add resource: ${JSON.stringify(resource)} to pulumi stack`);
+      resourcesInGlobal.push(resource);
     }
-    fcConfigToBeWritten.functions = functionsInGlobal;
-
-
-    if (this.triggersConfig) {
-      for (const triggerConfig of this.triggersConfig) {
-        // The key of fc config file is ${account_id}_${region}_${service}
-        this.logger.debug(`current trigger is : ${JSON.stringify(triggerConfig)}`);
-        const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
-        const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
-        this.logger.debug(`resolved trigger in pulumi format: ${JSON.stringify(resolvedTrigger)}`);
-        const triggerIdxInGlobal = triggersInGlobal?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function && t.service === resolvedTrigger.service);
-        if (triggerIdxInGlobal !== undefined && triggerIdxInGlobal >= 0) {
-          if (!equal(resolvedTrigger, triggersInGlobal[triggerIdxInGlobal])) {
-            this.logger.warn(`Trigger ${triggerConfig.name} already exists in golbal:\n${JSON.stringify(triggersInGlobal[triggerIdxInGlobal])}`);
-            if (assumeYes || await promptForConfirmContinue('Replace trigger in pulumi stack with the trigger in current working directory?')) {
-              // replace trigger
-              triggersInGlobal[triggerIdxInGlobal] = resolvedTrigger;
-            }
-          }
-        } else {
-          triggersInGlobal.push(resolvedTrigger);
-        }
-      }
-    }
-    fcConfigToBeWritten.triggers = triggersInGlobal;
+    const fcConfigToBeWritten = Object.assign({}, {
+      [keyInConfFile]: resourcesInGlobal,
+    });
 
     // overwrite file
-    if (_.isEmpty(fcConfigToBeWritten.functions)) { delete fcConfigToBeWritten.functions; }
-    if (_.isEmpty(fcConfigToBeWritten.triggers)) { delete fcConfigToBeWritten.triggers; }
-    await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
-    this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
-  }
-
-  async getFunctionNamesInConfigFile(): Promise<string[]> {
-    if (await fse.pathExists(this.configFile) && await isFile(this.configFile)) {
-      const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
-      const functionsUnderService = [];
-      if (fcConfigInGlobal?.functions) {
-        for (const f of fcConfigInGlobal?.functions) {
-          if (f.service === this.serviceConfig.name) { functionsUnderService.push(f.name); }
-        }
-      }
-      return functionsUnderService;
-    } else {
-      throw new Error('Please deploy resource first.');
-    }
-  }
-
-  async getTriggerNamesInConfigFile(): Promise<string[]> {
-    if (await fse.pathExists(this.configFile) && await isFile(this.configFile)) {
-      const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
-      const triggersUnderFunction = [];
-      if (fcConfigInGlobal?.triggers) {
-        for (const t of fcConfigInGlobal?.triggers) {
-          if (t.service === this.functionConfig.service && t.function === this.functionConfig.name) { triggersUnderFunction.push(t.name); }
-        }
-      }
-      return triggersUnderFunction;
-    } else {
-      throw new Error('Please deploy resource first.');
-    }
-  }
-
-
-  async delConfig(): Promise<void> {
-    this.logger.debug(`Deleting in ${this.configFile}...`, 'yellow');
-    const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
-    let serviceInGlobal = fcConfigInGlobal?.service;
-    const functionsInGlobal: FunctionConfig[] = fcConfigInGlobal?.functions;
-    const triggersInGlobal: TriggerConfig[] = fcConfigInGlobal?.triggers;
-
-
-    if (this.triggersConfig) {
-      for (const triggerConfig of this.triggersConfig) {
-        const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
-        const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
-        const triggerIdxInGlobal = triggersInGlobal?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function);
-        if (triggerIdxInGlobal !== undefined && triggerIdxInGlobal >= 0) {
-          triggersInGlobal.splice(triggerIdxInGlobal, 1);
-        } else {
-          this.logger.error(`Remove trigger: ${triggerConfig.name} error: the trigger does not exist.`);
-        }
-      }
-    }
-
-    if (this.functionConfig) {
-      const triggersUnderFunction: string[] = [];
-      if (triggersInGlobal) {
-        for (const triggerConfig of triggersInGlobal) {
-          if (triggerConfig.function === this.functionConfig.name) {
-            triggersUnderFunction.push(triggerConfig.name);
-          }
-        }
-      }
-      if (triggersUnderFunction.length > 0) {
-        this.logger.error(`Remove function: ${this.functionConfig.name} error: you should remove triggers: ${triggersUnderFunction} first.`);
-      } else {
-        const functionIdxInGlobal = functionsInGlobal?.findIndex((f) => f.name === this.functionConfig.name);
-
-        if (functionIdxInGlobal !== undefined && functionIdxInGlobal >= 0) {
-          functionsInGlobal.splice(functionIdxInGlobal, 1);
-        } else {
-          this.logger.error(`Remove function: ${this.functionConfig.name} error: the function does not exist.`);
-        }
-      }
-    }
-    if (this.serviceConfig) {
-      const functionsUnderService: string[] = [];
-      if (functionsInGlobal) {
-        for (const functionInGlobal of functionsInGlobal) {
-          if (functionInGlobal.service === this.serviceConfig.name) {
-            functionsUnderService.push(functionInGlobal.name);
-          }
-        }
-      }
-      if (functionsUnderService.length > 0) {
-        this.logger.error(`Remove service: ${this.serviceConfig.name} error: you should remove functions: ${functionsUnderService} first.`);
-      } else {
-        serviceInGlobal = {};
-      }
-    }
-    const fcConfigToBeWritten = {};
-    if (serviceInGlobal !== undefined && JSON.stringify(serviceInGlobal) !== '{}') {
-      Object.assign(fcConfigToBeWritten, {
-        service: serviceInGlobal,
-      });
-    }
-
-    if (functionsInGlobal !== undefined && functionsInGlobal.length > 0) {
-      Object.assign(fcConfigToBeWritten, {
-        functions: functionsInGlobal,
-      });
-    }
-    if (triggersInGlobal !== undefined && triggersInGlobal.length > 0) {
-      Object.assign(fcConfigToBeWritten, {
-        triggers: triggersInGlobal,
-      });
-    }
-    if (JSON.stringify(fcConfigToBeWritten) === '{}') {
-      // remove config file
-      await fse.unlink(this.configFile);
-    } else {
-      // overwrite file
+    if (isResourcesInGlobalChanged) {
+      this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
       await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+    } else {
+      this.logger.debug(`resource ${keyInConfFile} dose not change.`);
     }
   }
 
-  async addConfigToJsonFile(assumeYes?: boolean): Promise<void> {
+  static async getResourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]> {
+    const resourcesName: string[] = [];
+    if (!await fse.pathExists(configFilePath) || !await isFile(configFilePath)) { return resourcesName; }
+    const fcConfigInGlobal = JSON.parse(await fse.readFile(configFilePath, 'utf-8'));
+    const childResource = fcConfigInGlobal[childKeyInConfFile];
+
+    if (_.isEmpty(childResource)) {
+      return resourcesName;
+    }
+    for (const f of childResource) {
+      const parentAttrInChild: string | string[] = f[parentKeyInChildResource];
+      if (_.isNil(parentAttrInChild)) {
+        throw new Error(`${parentKeyInChildResource} in ${childKeyInConfFile} is ${parentAttrInChild}`);
+      }
+      if ((_.isString(parentAttrInChild) && parentAttrInChild === parentName) ||
+          (_.isArray(parentAttrInChild) && parentAttrInChild.includes(parentName))) {
+        resourcesName.push(f[childKeyInResource]);
+      }
+    }
+    return resourcesName;
+  }
+
+  static async delReourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]> {
+    const reomvedResources: string[] = [];
+    if (await fse.pathExists(configFilePath) && await isFile(configFilePath)) {
+      const fcConfigInGlobal = JSON.parse(await fse.readFile(configFilePath, 'utf-8'));
+      const reservedResources = [];
+
+      if (!_.isEmpty(fcConfigInGlobal[childKeyInConfFile])) {
+        for (const f of fcConfigInGlobal[childKeyInConfFile]) {
+          if (f[parentKeyInChildResource] !== parentName) {
+            reservedResources.push(f);
+          } else {
+            reomvedResources.push(f[childKeyInResource]);
+          }
+        }
+      }
+      if (_.isEmpty(reservedResources)) {
+        await fse.unlink(configFilePath);
+      } else {
+        const fcConfigToBeWritten = Object.assign({}, {
+          [childKeyInConfFile]: reservedResources,
+        });
+        await writeStrToFile(configFilePath, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+      }
+    }
+    return reomvedResources;
+  }
+
+  async addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean): Promise<void> {
     if (await this.configFileExists()) {
       // update
-      await this.addConfig(assumeYes);
+      await this.updateReourceInConfFile<T>(resource, keyInConfFile, keyInResource, assumeYes);
     } else {
       // create
-      await this.createConfigFile();
+      await this.createConfFile<T>(resource, keyInConfFile);
     }
   }
 
-  delFunction(functions: FunctionConfig[]): FunctionConfig[] {
-    if (!functions) { return undefined; }
-    const functionIdx = functions?.findIndex((f) => f.name === this.functionConfig.name);
-    if (functionIdx !== undefined && functionIdx >= 0) {
-      functions.splice(functionIdx, 1);
-    } else {
-      throw new Error(`function: ${this.functionConfig.name} dose not exist in local pulumi stack.`);
-    }
-
-    return functions;
+  async preparePulumiCode() {
+    // const targetDir = path.dirname(this.configFile);
+    this.logger.debug(`ensuring dir: ${this.pulumiStackDir}`);
+    await fse.ensureDir(this.pulumiStackDir);
+    this.logger.debug('FC-BASE', `coping files under ${PULUMI_CODE_DIR} to ${this.pulumiStackDir}`);
+    await fse.copy(PULUMI_CODE_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_CODE_FILE)), { overwrite: true });
+    await fse.copy(PULUMI_PACKAGE_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_PACKAGE_FILE)), { overwrite: true });
+    await fse.copy(PULUMI_PACKAGE_LOCK_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_PACKAGE_LOCK_FILE)), { overwrite: true });
+    this.logger.debug('FC-BASE', `installing dependencies under ${PULUMI_CODE_DIR}`);
+    // const { stdout, stderr } = await execAsync('npm i', { cwd: targetDir });
+    // if (!_.isNil(stderr)) { throw new Error(`Error occurs when npm i under ${targetDir}: ${stderr}`); }
+    execSync('npm i', { cwd: this.pulumiStackDir, stdio: 'ignore' });
+    // this.logger.debug(`stdout of npm i under ${targetDir}: ${stdout.toString('utf8')}`);
   }
 
-  delTriggers(triggers: TriggerConfig[], triggerName?: string, functionName?: string): TriggerConfig[] {
-    if (!triggers || triggers.length === 0) { return undefined; }
-    if (!triggerName && !functionName) {
-      // 删除 yaml 中所有的 trigger
-      if (this.triggersConfig) {
-        for (const triggerConfig of this.triggersConfig) {
-          const triggerIns = new Trigger(triggerConfig, this.region, this.credentials.AccountID);
-          const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
-          const triggerIdx = triggers?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function && t.service === resolvedTrigger.service);
-          if (triggerIdx !== undefined && triggerIdx >= 0) {
-            triggers.splice(triggerIdx, 1);
-          } else {
-            throw new Error(`Remove trigger error: the trigger: ${triggerConfig.name} does not exist in local pulumi stack.`);
-          }
-        }
-      } else {
-        throw new Error('There is no trigger in your yaml file.');
-      }
-    } else if (triggerName) {
-      // 删除指定名称的 trigger
-      const triggerIdxInYaml = this.triggersConfig?.findIndex((t) => t.name === triggerName);
-      if (triggerIdxInYaml !== undefined && triggerIdxInYaml >= 0) {
-        const triggerToBeDeleted = this.triggersConfig[triggerIdxInYaml];
-        const triggerIns = new Trigger(triggerToBeDeleted, this.region, this.credentials.AccountID);
-        const resolvedTrigger = triggerIns.resolveTriggerIntoPulumiFormat();
-        const triggerIdx = triggers?.findIndex((t) => t.name === resolvedTrigger.name && t.function === resolvedTrigger.function);
-        if (triggerIdx !== undefined && triggerIdx >= 0) {
-          triggers.splice(triggerIdx, 1);
-        } else {
-          throw new Error(`Remove trigger error: the trigger: ${triggerName} does not exist in local pulumi stack, please deploy it first.`);
-        }
-      } else {
-        throw new Error(`Trigger: ${triggerName} dose not exist in your yaml file.`);
-      }
-    } else if (functionName) {
-      // 删除某个函数下的所有 trigger
-      let i = triggers.length;
-      while (i--) {
-        if (triggers[i].function === functionName) {
-          triggers.splice(i, 1);
-        }
-      }
-    }
-    return triggers;
-  }
   async configFileExists(): Promise<boolean> {
     if (await fse.pathExists(this.configFile) && await isFile(this.configFile)) {
       return true;
@@ -338,72 +246,5 @@ export class FcBase {
     return false;
   }
 
-  async delFunctionConfigInConfigFile(): Promise<void> {
-    if (await this.configFileExists()) {
-      const configInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
-
-      if (configInGlobal?.functions) {
-        const functions = this.delFunction(configInGlobal.functions);
-        if (functions) {
-          if (functions.length === 0) {
-            // no function left
-            delete configInGlobal.functions;
-          } else {
-            configInGlobal.functions = functions;
-          }
-        }
-
-        if (configInGlobal?.triggers) {
-          const triggers = this.delTriggers(configInGlobal.triggers, undefined, this.functionConfig.name);
-          if (triggers) {
-            if (triggers.length === 0) {
-              // no trigger left
-              delete configInGlobal.triggers;
-            } else {
-              configInGlobal.triggers = triggers;
-            }
-          }
-        }
-        await writeStrToFile(this.configFile, JSON.stringify(configInGlobal), 'w', 0o777);
-        this.logger.debug(`Delete function: ${this.functionConfig.name} in ${this.configFile} done!`);
-      } else {
-        throw new Error(`There is no function under service: ${this.serviceConfig.name}`);
-      }
-    } else {
-      throw new Error('Please deploy resource first.');
-    }
-  }
-
-  async delTriggerConfigInConfigFile(triggerName?: string): Promise<void> {
-    if (await this.configFileExists()) {
-      const configInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
-      if (configInGlobal?.triggers) {
-        const triggers = this.delTriggers(configInGlobal.triggers, triggerName);
-        if (triggers) {
-          if (triggers.length === 0) {
-            // no trigger left
-            delete configInGlobal.triggers;
-          } else {
-            configInGlobal.triggers = triggers;
-          }
-        }
-
-        await writeStrToFile(this.configFile, JSON.stringify(configInGlobal), 'w', 0o777);
-        this.logger.debug(`Delete ${triggerName || 'triggers'} ${this.configFile} done!`);
-      } else {
-        throw new Error(`There is no trigger ${triggerName || ''} under function: ${this.functionConfig.name}`);
-      }
-    } else {
-      throw new Error('Please deploy resource first.');
-    }
-  }
-
-  async delConfigInJsonFile(): Promise<void> {
-    if (await fse.pathExists(this.configFile) && await isFile(this.configFile)) {
-      // update
-      await this.delConfig();
-    } else {
-      this.logger.warn('There is no resource.');
-    }
-  }
+  abstract validateConfig(): void;
 }

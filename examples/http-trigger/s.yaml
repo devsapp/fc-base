@@ -6,10 +6,10 @@ demo1:
   Properties:
     region: cn-hangzhou
     service:
-      name: qianfeng-fc-base-component-service
+      name: qianfeng-fc-base-service
     function:
-      name: fc-base-component-function-one
-      service: qianfeng-fc-base-component-service
+      name: qianfeng-fc-base-service
+      service: qianfeng-fc-base-service
       filename: './code.zip'
       handler: 'index.handler'
       memorySize: 128
@@ -17,8 +17,8 @@ demo1:
       timeout: 60
     triggers:
       - name: httpTriggerOne
-        function: fc-base-component-function-one
-        service: qianfeng-fc-base-component-service
+        function: qianfeng-fc-base-service
+        service: qianfeng-fc-base-service
         type: http
         config:
           authType: anonymous

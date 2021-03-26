@@ -2,30 +2,48 @@ const path = require('path');
 const fse = require('fs-extra');
 const alicloud = require('@pulumi/alicloud');
 
-const fcConfigFile = path.join(__dirname, 'fc-config.json');
+const serviceConfigFileName = 'fc-service.json';
+const functionConfigFileName = 'fc-function.json';
+const triggerConfigFileName = 'fc-trigger.json';
 
-if (fse.pathExistsSync(fcConfigFile)) {
-  const fcConfig = JSON.parse(fse.readFileSync(fcConfigFile, { encoding: 'utf-8' }));
-  const serviceConfig = fcConfig.service;
+const keyInFunctionConfigFile = 'function';
+const keyInTriggerConfigFile = 'trigger';
 
-  const fcService = new alicloud.fc.Service(serviceConfig.name, serviceConfig);
-
-  const functionsConfig = fcConfig.functions;
-  const triggersConfig = fcConfig.triggers;
-  const fcFunctions = [];
-  const fcTriggers = [];
-  if (Array.isArray(functionsConfig) && functionsConfig.length > 0) {
-    for (const functionConfig of functionsConfig) {
-      const fcFunction = new alicloud.fc.Function(functionConfig.name, functionConfig, { dependsOn: [fcService], parent: fcService });
-      fcFunctions.push(fcFunction);
-      if (Array.isArray(triggersConfig) && triggersConfig.length > 0) {
-        for (const triggerConfig of triggersConfig) {
-          if (triggerConfig.function === functionConfig.name) {
-            const fcTrigger = new alicloud.fc.Trigger(triggerConfig.name, triggerConfig, { dependsOn: [fcService, fcFunction], parent: fcFunction });
-            fcTriggers.push(fcTrigger);
-          }
-        }
+function deployNonServiceResource(filePath, type, PulumiFn, fcService, fcFunction) {
+  if (!fse.pathExistsSync(filePath)) { return undefined; }
+  const fcReourceObj = JSON.parse(fse.readFileSync(filePath, { encoding: 'utf-8' }));
+  const fcReourceConf = fcReourceObj[type];
+  const res = {};
+  if (Array.isArray(fcReourceConf) && fcReourceConf.length > 0) {
+    for (const conf of fcReourceConf) {
+      const dependsOn = [];
+      let parent;
+      if (fcService) {
+        dependsOn.push(fcService);
+        parent = fcService;
       }
+      if (fcFunction) {
+        dependsOn.push(fcFunction[conf.function]);
+        parent = fcFunction[conf.function];
+      }
+      const fcReource = new PulumiFn(conf.name, conf, { dependsOn, parent });
+      Object.assign(res, {
+        [conf.name]: fcReource,
+      });
     }
   }
+  return res;
+}
+
+const fcServiceConfigFile = path.join(__dirname, serviceConfigFileName);
+const fcFunctionConfigFile = path.join(__dirname, functionConfigFileName);
+const fcTriggerConfigFile = path.join(__dirname, triggerConfigFileName);
+
+if (fse.pathExistsSync(fcServiceConfigFile)) {
+  const fcServiceObj = JSON.parse(fse.readFileSync(fcServiceConfigFile, { encoding: 'utf-8' }));
+  const serviceConf = fcServiceObj.service;
+  const fcService = new alicloud.fc.Service(serviceConf.name, serviceConf);
+
+  const fcFunction = deployNonServiceResource(fcFunctionConfigFile, keyInFunctionConfigFile, alicloud.fc.Function, fcService);
+  deployNonServiceResource(fcTriggerConfigFile, keyInTriggerConfigFile, alicloud.fc.Trigger, fcService, fcFunction);
 }
