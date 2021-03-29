@@ -105,12 +105,12 @@ export default class FcBaseComponent {
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
     const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp);
     const pulumiRes = await pulumiComponentIns.up(pulumiInputs);
-    if (pulumiRes.stderr && pulumiRes.stderr !== '') {
-      this.logger.error(`deploy error: ${pulumiRes.stderr}`);
+    if (pulumiRes?.stderr && pulumiRes?.stderr !== '') {
+      this.logger.error(`deploy error: ${pulumiRes?.stderr}`);
       return;
     }
     // 返回结果
-    return pulumiRes.stdout;
+    return pulumiRes?.stdout;
   }
 
   async remove(inputs): Promise<any> {
@@ -197,12 +197,12 @@ export default class FcBaseComponent {
       if (isTriggersBeRemoved) { pulumiRes = await pulumiComponentIns.up(pulumiInputs); }
     }
     if (pulumiRes?.stderr) {
-      this.logger.error(`remove error:\n ${pulumiRes.stderr}`);
+      this.logger.error(`remove error:\n ${pulumiRes?.stderr}`);
       return;
     }
     if (nonOptionsArg === 'service') {
       fse.removeSync(fcService.pulumiStackDir);
     }
-    return pulumiRes.stdout || 'nothing changes';
+    return pulumiRes?.stdout || 'nothing changes';
   }
 }
