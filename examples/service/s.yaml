@@ -1,6 +1,6 @@
 demo1:
-  # Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
-  Component: fc-base
+  Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
+  # Component: fc-base
   Provider: alibaba
   Access: default
   Properties:
