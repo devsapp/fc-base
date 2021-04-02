@@ -78,7 +78,7 @@ export default class FcBaseComponent {
     await fcService.preparePulumiCode();
     const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes'] });
     const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
-
+    const isSilent = parsedArgs.data?.s || parsedArgs.data?.silent;
     // TODO: import online service/function/trigger
 
 
@@ -103,7 +103,7 @@ export default class FcBaseComponent {
     // 部署 fc 资源
     const pulumiComponentIns = await core.load('alibaba/pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
-    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp);
+    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp, isSilent ? '-s' : undefined);
     const pulumiRes = await pulumiComponentIns.up(pulumiInputs);
     if (pulumiRes?.stderr && pulumiRes?.stderr !== '') {
       this.logger.error(`deploy error: ${pulumiRes?.stderr}`);
@@ -126,7 +126,7 @@ export default class FcBaseComponent {
     const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes'] });
     const nonOptionsArgs = parsedArgs.data?._;
     const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
-
+    const isSilent = parsedArgs.data?.s || parsedArgs.data?.silent;
     if (_.isEmpty(nonOptionsArgs)) {
       this.logger.error(' error: expects argument.');
       // help info
@@ -149,7 +149,7 @@ export default class FcBaseComponent {
     }
     const pulumiComponentIns = await core.load('alibaba/pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
-    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp);
+    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp, isSilent ? '-s' : undefined);
 
     let pulumiRes;
     if (nonOptionsArg === 'service') {

@@ -2,7 +2,7 @@ Type: Component
 Name: fc-base
 Provider:
   - Alibaba
-Version: 0.0.15
+Version: 0.0.16
 Description:
   zh: 阿里云函数计算基础组件，可以快速部署阿里云FC
   en: Alibaba Cloud function computing base component, it can quickly deploy Alibaba Cloud FC
