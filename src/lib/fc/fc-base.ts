@@ -77,7 +77,7 @@ export abstract class FcBase {
           const fcConfigToBeWritten = Object.assign({}, {
             [keyInConfFile]: resources,
           });
-          await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+          await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten, null, '  '), 'w', 0o777);
           this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
         }
         return true;
@@ -120,7 +120,7 @@ export abstract class FcBase {
     Object.assign(conf, {
       [keyInConfFile]: resources,
     });
-    await writeStrToFile(this.configFile, JSON.stringify(conf), 'w', 0o777);
+    await writeStrToFile(this.configFile, JSON.stringify(conf, null, '  '), 'w', 0o777);
     this.logger.debug(`write content: ${JSON.stringify(conf)} to ${this.configFile}`);
   }
 
@@ -159,7 +159,7 @@ export abstract class FcBase {
     // overwrite file
     if (isResourcesInGlobalChanged) {
       this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
-      await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+      await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten, null, '  '), 'w', 0o777);
     } else {
       this.logger.debug(`resource ${keyInConfFile} dose not change.`);
     }
@@ -208,7 +208,7 @@ export abstract class FcBase {
         const fcConfigToBeWritten = Object.assign({}, {
           [childKeyInConfFile]: reservedResources,
         });
-        await writeStrToFile(configFilePath, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+        await writeStrToFile(configFilePath, JSON.stringify(fcConfigToBeWritten, null, '  '), 'w', 0o777);
       }
     }
     return reomvedResources;

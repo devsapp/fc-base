@@ -61,7 +61,7 @@ export class FcService extends FcBase {
     const conf = {};
     if (this.serviceConfig) {
       Object.assign(conf, { service: this.serviceConfig });
-      await writeStrToFile(this.configFile, JSON.stringify(conf), 'w', 0o777);
+      await writeStrToFile(this.configFile, JSON.stringify(conf, null, '  '), 'w', 0o777);
       this.logger.debug(`write content: ${JSON.stringify(conf)} to ${this.configFile}`);
     } else {
       this.logger.error('empty function Config in FcFunction instance');
@@ -92,7 +92,7 @@ export class FcService extends FcBase {
     }
 
     // overwrite file
-    await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten), 'w', 0o777);
+    await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten, null, '  '), 'w', 0o777);
     this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
   }
 
