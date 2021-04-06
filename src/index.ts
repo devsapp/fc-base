@@ -76,7 +76,7 @@ export default class FcBaseComponent {
       args,
     } = await this.handlerInputs(inputs);
     await fcService.preparePulumiCode();
-    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes'] });
+    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
     const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
     const isSilent = parsedArgs.data?.s || parsedArgs.data?.silent;
     // TODO: import online service/function/trigger
@@ -123,7 +123,7 @@ export default class FcBaseComponent {
       args,
     } = await this.handlerInputs(inputs);
 
-    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes'] });
+    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
     const nonOptionsArgs = parsedArgs.data?._;
     const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
     const isSilent = parsedArgs.data?.s || parsedArgs.data?.silent;
