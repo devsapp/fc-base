@@ -208,7 +208,7 @@ Properties:
             Required: false
             Description: 环境变量
             Type:
-              - Struct
+              - List<Struct>
           initializationTimeout:
             Required: false
             Description: 初始化超时时间
