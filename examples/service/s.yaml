@@ -1,25 +1,27 @@
-demo1:
-  Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
-  # Component: fc-base
-  Provider: alibaba
-  Access: default
-  Properties:
-    region: cn-hangzhou
-    service:
-      name: qianfeng-fc-base-component-service
-      description: 'this is a test'
-      internetAccess: true
-      role: acs:ram::xxx:role/qianfeng-fc-base-role
-      vpcConfig:
-        vswitchIds:
-          - ${Env(vswitchId)}
-        securityGroupId: ${Env(securityGruopId)}
-      nasConfig:
-        userId: -1
-        groupId: -1
-        mountPoints:
-          - serverAddr: ${Env(nasServerAddr)}
-            mountDir: /mnt/auto
-      logConfig:
-        project: ${Env(logproject)}
-        logstore: ${Env(logstore)}
+edition: 1.0.0          #  命令行YAML规范版本，遵循语义化版本（Semantic Versioning）规范
+name: fcBaseApp         #  项目名称
+access: aliyun-release  #  秘钥别名
+
+services:
+  fc-base-test: #  服务名称
+    component: fc-base  # 组件名称
+    props: #  组件的属性值
+      region: cn-hangzhou
+      service:
+        name: qianfeng-fc-base-component-service
+        description: 'this is a test'
+        internetAccess: true
+        role: acs:ram::xxx:role/qianfeng-fc-base-role
+        vpcConfig:
+          vswitchIds:
+            - ${Env(vswitchId)}
+          securityGroupId: ${Env(securityGruopId)}
+        nasConfig:
+          userId: -1
+          groupId: -1
+          mountPoints:
+            - serverAddr: ${Env(nasServerAddr)}
+              mountDir: /mnt/auto
+        logConfig:
+          project: ${Env(logproject)}
+          logstore: ${Env(logstore)}
