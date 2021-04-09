@@ -80,11 +80,6 @@ Properties:
                     Description: 一个或多个VSwitch ID
                     Type:
                       - List<String>
-                  vpcId:
-                    Required: false
-                    Description: VPC ID
-                    Type:
-                      - String
           nasConfig:
             Required: false
             Description: NAS配置, 配置后function可以访问指定NAS
