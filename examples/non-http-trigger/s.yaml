@@ -1,81 +1,83 @@
-demo1:
-  # Component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/dist
-  Component: fc-base
-  Provider: alibaba
-  Access: default
-  Properties:
-    region: cn-hangzhou
-    service:
-      name: qianfeng-fc-base-component-service
-      role: acs:ram::xxx:role/qianfeng-fc-deploy-test-role
-    function:
-      name: fc-base-component-function-two
-      service: qianfeng-fc-base-component-service
-      filename: './code.zip'
-      handler: 'index.handler'
-      memorySize: 128
-      runtime: nodejs12
-      timeout: 60
-    triggers:
-      - name: timerTrigger
-        function: fc-base-component-function-two
+edition: 1.0.0          #  命令行YAML规范版本，遵循语义化版本（Semantic Versioning）规范
+name: fcBaseApp         #  项目名称
+access: aliyun-release  #  秘钥别名
+
+services:
+  fc-base-test: #  服务名称
+    component: fc-base  # 组件名称
+    props: #  组件的属性值
+      region: cn-hangzhou
+      service:
+        name: qianfeng-fc-base-component-service
+        role: acs:ram::xxx:role/qianfeng-fc-deploy-test-role
+      function:
+        name: fc-base-component-function-two
         service: qianfeng-fc-base-component-service
-        type: timer
-        config:
-          cronExpression: '0 0 8 * * *'
-          enable: true
-          payload: 'awesome-fc'
-      - name: ossTrigger
-        function: fc-base-component-function-two
-        service: qianfeng-fc-base-component-service
-        type: oss
-        role: acs:ram::xxx:role/qianfeng-fc-base-role
-        config:
-          bucketName: fassdemo
-          events:
-            - oss:ObjectCreated:*
-            - oss:ObjectRemoved:DeleteObject
-          filter:
-            Key:
-              Prefix: source/
-              Suffix: .png
-      - name: logTrigger
-        function: fc-base-component-function-two
-        service: qianfeng-fc-base-component-service
-        type: log
-        role: acs:ram::xxx:role/qianfeng-fc-base-role
-        config:
-          logConfig:
-            project: fass-demo
-            logstore: fc-log
-          jobConfig:
-            maxRetryTime: 1
-            triggerInterval: 30
-          sourceConfig:
-            logstore: function-log
-          functionParameter:
-            key: val
-          enable: true
-      - name: mnsTrigger
-        function: fc-base-component-function-two
-        service: qianfeng-fc-base-component-service
-        type: mns_topic
-        role: acs:ram::xxx:role/qianfeng-fc-base-role
-        config:
-          topicName: test-topic
-          region: cn-hangzhou
-          notifyContentFormat: 'JSON'
-          notifyStrategy: 'BACKOFF_RETRY'
-      - name: cdnTrigger
-        function: fc-base-component-function-two
-        service: qianfeng-fc-base-component-service
-        type: cdn_events
-        role: acs:ram::xxx:role/qianfeng-fc-base-role
-        config:
-          eventName: LogFileCreated
-          eventVersion: '1.0.0'
-          notes: cdn events trigger test
-          filter:
-            domain: 
-              - 'www.taobao.com'
-              - 'www.tmall.com'
+        filename: './code.zip'
+        handler: 'index.handler'
+        memorySize: 128
+        runtime: nodejs12
+        timeout: 60
+      triggers:
+        - name: timerTrigger
+          function: fc-base-component-function-two
+          service: qianfeng-fc-base-component-service
+          type: timer
+          config:
+            cronExpression: '0 0 8 * * *'
+            enable: true
+            payload: 'awesome-fc'
+        - name: ossTrigger
+          function: fc-base-component-function-two
+          service: qianfeng-fc-base-component-service
+          type: oss
+          role: acs:ram::xxx:role/qianfeng-fc-base-role
+          config:
+            bucketName: fassdemo
+            events:
+              - oss:ObjectCreated:*
+              - oss:ObjectRemoved:DeleteObject
+            filter:
+              Key:
+                Prefix: source/
+                Suffix: .png
+        - name: logTrigger
+          function: fc-base-component-function-two
+          service: qianfeng-fc-base-component-service
+          type: log
+          role: acs:ram::xxx:role/qianfeng-fc-base-role
+          config:
+            logConfig:
+              project: fass-demo
+              logstore: fc-log
+            jobConfig:
+              maxRetryTime: 1
+              triggerInterval: 30
+            sourceConfig:
+              logstore: function-log
+            functionParameter:
+              key: val
+            enable: true
+        - name: mnsTrigger
+          function: fc-base-component-function-two
+          service: qianfeng-fc-base-component-service
+          type: mns_topic
+          role: acs:ram::xxx:role/qianfeng-fc-base-role
+          config:
+            topicName: test-topic
+            region: cn-hangzhou
+            notifyContentFormat: 'JSON'
+            notifyStrategy: 'BACKOFF_RETRY'
+        - name: cdnTrigger
+          function: fc-base-component-function-two
+          service: qianfeng-fc-base-component-service
+          type: cdn_events
+          role: acs:ram::xxx:role/qianfeng-fc-base-role
+          config:
+            eventName: LogFileCreated
+            eventVersion: '1.0.0'
+            notes: cdn events trigger test
+            filter:
+              domain:
+                - 'www.taobao.com'
+                - 'www.tmall.com'
