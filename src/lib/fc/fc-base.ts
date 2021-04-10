@@ -1,6 +1,6 @@
 import * as fse from 'fs-extra';
 import { isFile, writeStrToFile } from '../file';
-import { HLogger, ILogger } from '@serverless-devs/core';
+import { HLogger, ILogger, load } from '@serverless-devs/core';
 import equal from 'deep-equal';
 import { promptForConfirmContinue } from '../init/prompt';
 import { ICredentials } from '../profile';
@@ -9,11 +9,13 @@ import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
 
+const CODE_LIB_PATH = path.resolve(__dirname, '..');
 const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
-const PULUMI_CODE_DIR: string = path.join(path.resolve(__dirname, '..'), 'utils', 'pulumi');
+const PULUMI_CODE_DIR: string = path.join(CODE_LIB_PATH, 'utils', 'pulumi');
 const PULUMI_CODE_FILE: string = path.join(PULUMI_CODE_DIR, 'index.js');
 const PULUMI_PACKAGE_FILE: string = path.join(PULUMI_CODE_DIR, 'package.json');
 const PULUMI_PACKAGE_LOCK_FILE: string = path.join(PULUMI_CODE_DIR, 'package-lock.json');
+const PULUMI_LOCAL_PLUGIN_PATH = path.join(CODE_LIB_PATH, 'utils', 'pulumi-plugin');
 export abstract class FcBase {
   @HLogger('FC-BASE') logger: ILogger;
 
@@ -225,16 +227,18 @@ export abstract class FcBase {
   }
 
   async preparePulumiCode() {
-    // const targetDir = path.dirname(this.configFile);
     this.logger.debug(`ensuring dir: ${this.pulumiStackDir}`);
     await fse.ensureDir(this.pulumiStackDir);
-    this.logger.debug('FC-BASE', `coping files under ${PULUMI_CODE_DIR} to ${this.pulumiStackDir}`);
+    this.logger.debug(`coping files under ${PULUMI_CODE_DIR} to ${this.pulumiStackDir}`);
     await fse.copy(PULUMI_CODE_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_CODE_FILE)), { overwrite: true });
     await fse.copy(PULUMI_PACKAGE_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_PACKAGE_FILE)), { overwrite: true });
     await fse.copy(PULUMI_PACKAGE_LOCK_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_PACKAGE_LOCK_FILE)), { overwrite: true });
-    this.logger.debug('FC-BASE', `installing dependencies under ${PULUMI_CODE_DIR}`);
-    // const { stdout, stderr } = await execAsync('npm i', { cwd: targetDir });
-    // if (!_.isNil(stderr)) { throw new Error(`Error occurs when npm i under ${targetDir}: ${stderr}`); }
+
+    this.logger.debug('installing pulumi plugin from local.');
+    const pulumiComponentIns = await load('alibaba/pulumi-alibaba');
+    await pulumiComponentIns.installPluginFromLocal({ args: PULUMI_LOCAL_PLUGIN_PATH });
+
+    this.logger.debug(`installing dependencies under ${PULUMI_CODE_DIR}`);
     execSync('npm i', { cwd: this.pulumiStackDir, stdio: 'ignore' });
     // this.logger.debug(`stdout of npm i under ${targetDir}: ${stdout.toString('utf8')}`);
   }

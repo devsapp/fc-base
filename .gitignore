@@ -38,4 +38,9 @@ lerna-debug.log*
 **/Pulumi.yaml
 
 **/.s
+**/s.copy.yaml
 **/.env
+dist/
+# dist/node_modules
+# dist/lib/utils/pulumi-plugin
+.oss_cfg
