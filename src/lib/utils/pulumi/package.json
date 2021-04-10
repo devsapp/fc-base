@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@pulumi/pulumi": "^2.21.2",
-    "@pulumi/alicloud": "^2.35.1",
+    "@pulumi/alicloud": "2.38.0",
     "fs-extra": "^9.1.0"
   }
 }
