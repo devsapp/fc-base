@@ -51,7 +51,7 @@ Properties:
             Type:
               - String
           description:
-            Required: true
+            Required: false
             Description: Service的简短描述
             Type:
               - String
@@ -71,20 +71,15 @@ Properties:
             Type:
               - Struct:
                   securityGroupId:
-                    Required: false
+                    Required: true
                     Description: 安全组ID
                     Type:
                       - String
                   vSwitchIds:
-                    Required: false
+                    Required: true
                     Description: 一个或多个VSwitch ID
                     Type:
                       - List<String>
-                  vpcId:
-                    Required: false
-                    Description: VPC ID
-                    Type:
-                      - String
           nasConfig:
             Required: false
             Description: NAS配置, 配置后function可以访问指定NAS
@@ -101,17 +96,17 @@ Properties:
                     Type:
                       - String
                   mountPoints:
-                    Required: false
+                    Required: true
                     Description: 挂载点
                     Type:
                       - List<Struct>:
                           serverAddr:
-                            Required: false
+                            Required: true
                             Description: server地址
                             Type:
                               - String
                           mountDir:
-                            Required: false
+                            Required: true
                             Description: mount目录
                             Type:
                               - String
@@ -121,12 +116,12 @@ Properties:
             Type:
               - Struct:
                   logStore:
-                    Required: false
+                    Required: true
                     Description: loghub中的logstore名称
                     Type:
                       - String
                   project:
-                    Required: false
+                    Required: true
                     Description: loghub中的project名称
                     Type:
                       - String
@@ -195,7 +190,7 @@ Properties:
             Type:
               - Struct:
                   image:
-                    Required: false
+                    Required: true
                     Description: 仓库地址
                     Type:
                       - String
@@ -234,7 +229,6 @@ Properties:
             Description: 实例类型
             Type:
               - String
-
   triggers:
     Required: false
     Description: 触发器
@@ -250,14 +244,12 @@ Properties:
             Description: 触发器类型
             Type:
               - Enum:
-                  - OSS
-                  - Timer
-                  - HTTP
-                  - Log
-                  - RDS
+                  - oss
+                  - timer
+                  - http
+                  - log
                   - mns_topic
-                  - TableStore
-                  - CDN
+                  - cdn_events
           function:
             Required: true
             Description: 所属函数
@@ -269,6 +261,11 @@ Properties:
             Type:
               - String
           role:
+            Required: true
+            Description: 角色
+            Type:
+              - String
+          sourceArn:
             Required: false
             Description: 角色
             Type:
@@ -287,35 +284,35 @@ Properties:
                     Required: true
                     Description: 为 OSS 端触发函数执行的事件
                     Type:
-                      - List
+                      - List<String>
                   filter:
                     Required: true
                     Description: 筛选条件
                     Type:
                       - Struct:
                           Key:
-                            Required: false
+                            Required: true
                             Description: 筛选Key
                             Type:
                               - Struct:
                                   prefix:
-                                    Required: false
+                                    Required: true
                                     Description: 前缀
                                     Type:
                                       - String
                                   suffix:
-                                    Required: false
+                                    Required: true
                                     Description: 后缀
                                     Type:
                                       - String
               - Struct[时间触发器]:
                   cronExpression:
-                    Required: false
+                    Required: true
                     Description: 时间触发器表达式
                     Type:
                       - String
                   enable:
-                    Required: false
+                    Required: true
                     Default: true
                     Description: 表示是否启用该触发器
                     Type:
@@ -347,21 +344,10 @@ Properties:
                     Type:
                       - Struct:
                           fomain:
-                            Required: false
+                            Required: true
                             Description: 网址
                             Type:
                               - List<String>
-              - Struct[表格存储触发器]:
-                  nnstanceName:
-                    Required: true
-                    Description: 表格存储实例的名字
-                    Type:
-                      - String
-                  tableName:
-                    Required: true
-                    Description: 实例中的表名
-                    Type:
-                      - String
               - Struct[MNS触发器]:
                   topicName:
                     Required: true
@@ -389,41 +375,11 @@ Properties:
                       - Enum:
                           - BACKOFF_RETRY
                           - EXPONENTIAL_DECAY_RETRY
-              - Struct[RDS触发器]:
-                  instanceId:
-                    Required: true
-                    Description: RDS 实例 ID
+                  filterTag:
+                    Required: false
+                    Description: 描述了该订阅中消息过滤的标签（标签一致的消息才会被推送）,不超过 16 个字符的字符串,默认不进行消息过滤，即默认不填写该字段
                     Type:
                       - String
-                  subscriptionObjects:
-                    Required: false
-                    Description: 订阅对象，当前支持到表级别，只有这些表的更新才会触发函数执行
-                    Type:
-                      - List<String>
-                  retry:
-                    Required: false
-                    Description: 重试次数，可选值：[0,3], 默认值为3
-                    Type:
-                      - Number
-                  concurrency:
-                    Required: false
-                    Description: 调用并发量，可选值：[1，5], 默认值为1
-                    Deafult: 1
-                    Type:
-                      - Enum:
-                          - 1
-                          - 2
-                          - 3
-                          - 4
-                          - 5
-                  eventFormat:
-                    Required: false
-                    Description: event格式，可选值：json, protobuf
-                    Default: protobuf
-                    Type:
-                      - Enum:
-                          - json
-                          - protobuf
               - Struct[LOG日志触发器]:
                   sourceConfig:
                     Required: true
@@ -470,7 +426,7 @@ Properties:
                     Type:
                       - Struct
                   enable:
-                    Required: false
+                    Required: true
                     Description: 表示是否启用该触发器
                     Default: true
                     Type:

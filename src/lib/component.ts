@@ -1,12 +1,16 @@
 import { Logger } from '@serverless-devs/core';
 
-export function genComponentInputs(credentials: any, appName: string, props: any, path?: string, args?: string) {
+export function genComponentInputs(component: string, access: any, appName: string, projectName: string, props: any, path?: string, args?: string) {
   const inputs: {[key: string]: any} = {
-    credentials,
-    appName,
+    project: {
+      component,
+      access,
+      projectName,
+    },
     args,
     path,
     props,
+    appName,
   };
 
   Logger.debug('FC-BASE', `inputs of fc base component generated: ${JSON.stringify(inputs)}`);
