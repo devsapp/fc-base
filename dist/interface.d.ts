@@ -1,10 +1,13 @@
 import { ServiceConfig } from './lib/fc/service';
 import { FunctionConfig } from './lib/fc/function';
 import { TriggerConfig } from './lib/fc/trigger';
-import { ICredentials } from './lib/profile';
 export interface IInputs {
     props: IProperties;
-    credentials: ICredentials;
+    project: {
+        component: string;
+        access: string;
+        projectName: string;
+    };
     appName: string;
     args: string;
     path: any;

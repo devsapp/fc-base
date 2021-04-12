@@ -6,12 +6,14 @@ import { IInputs } from './interface';
 export default class FcBaseComponent {
     logger: core.ILogger;
     handlerInputs(inputs: IInputs): Promise<{
+        appName: string;
         projectName: string;
         fcService: FcService;
         fcFunction: FcFunction;
         fcTriggers: FcTrigger[];
         args: string;
         curPath: string;
+        access: string;
     }>;
     deploy(inputs: IInputs): Promise<any>;
     remove(inputs: IInputs): Promise<any>;
