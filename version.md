@@ -1,1 +1,1 @@
-- 初始化项目
+- 修复Publish.yaml
