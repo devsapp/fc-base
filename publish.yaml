@@ -384,11 +384,13 @@ Properties:
                   sourceConfig:
                     Required: true
                     Description: 日志源配置
-                      logstore:
-                        Required: true
-                        Description: 数据源的 Logstore 名称。触发器会定时从该 Logstore 订阅数据到函数计算
-                        Type:
-                          - String
+                    Type:
+                      - Struct:
+                          logstore:
+                            Required: true
+                            Description: 数据源的 Logstore 名称。触发器会定时从该 Logstore 订阅数据到函数计算
+                            Type:
+                              - String
                   jobConfig:
                     Required: false
                     Description: 包含两个可配置属性
