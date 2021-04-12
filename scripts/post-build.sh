@@ -5,8 +5,6 @@ ALICLOUD_PLUGIN_VERSION=v2.38.0
 ALICLOUD_PLUGIN_ZIP_FILE_NAME=pulumi-resource-alicloud-${ALICLOUD_PLUGIN_VERSION}.tgz
 
 cp -r src/lib/utils/pulumi dist/lib/utils
-cp package.json dist/
-cp package-lock.json dist/
 mkdir -p dist/scripts
 cp -f scripts/post-install.js dist/scripts/post-install.js
 

@@ -235,7 +235,7 @@ export abstract class FcBase {
     await fse.copy(PULUMI_PACKAGE_LOCK_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_PACKAGE_LOCK_FILE)), { overwrite: true });
 
     this.logger.debug('installing pulumi plugin from local.');
-    const pulumiComponentIns = await load('alibaba/pulumi-alibaba');
+    const pulumiComponentIns = await load('pulumi-alibaba');
     await pulumiComponentIns.installPluginFromLocal({ args: PULUMI_LOCAL_PLUGIN_PATH });
 
     this.logger.debug(`installing dependencies under ${PULUMI_CODE_DIR}`);

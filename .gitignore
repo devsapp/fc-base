@@ -1,5 +1,4 @@
 # compiled output
-**/dist
 **/node_modules
 
 # Logs
@@ -40,7 +39,5 @@ lerna-debug.log*
 **/.s
 **/s.copy.yaml
 **/.env
-dist/
-# dist/node_modules
-# dist/lib/utils/pulumi-plugin
+dist/lib/utils/pulumi-plugin/
 .oss_cfg

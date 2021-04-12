@@ -7,8 +7,9 @@ import { FcFunction, FunctionConfig } from './lib/fc/function';
 import { TriggerConfig, FcTrigger } from './lib/fc/trigger';
 import { promptForConfirmContinue } from './lib/init/prompt';
 import _ from 'lodash';
-import { ICredentials } from './lib/profile';
 import { isFile } from './lib/file';
+import { ICredentials } from './lib/profile';
+import { IProperties, IInputs } from './interface';
 
 const SUPPORTED_REMOVE_ARGS = ['service', 'function', 'trigger'];
 
@@ -16,14 +17,15 @@ export default class FcBaseComponent {
   @core.HLogger('FC-BASE') logger: core.ILogger;
 
   // 解析入参
-  async handlerInputs(inputs) {
-    const project = inputs?.project || inputs?.Project;
-    const properties = inputs?.properties || inputs?.Properties;
-    const provider: string = project?.Provider || project?.provider;
-    const accessAlias: string = project?.AccessAlias || project?.accessAlias;
-    const credentials: ICredentials = await core.getCredential(provider, accessAlias || '');
-    const args = inputs?.Args || inputs?.args;
-    const projectName: string = project.projectName || project.ProjectName;
+  async handlerInputs(inputs: IInputs) {
+    // const project = inputs?.project || inputs?.Project;
+    const properties: IProperties = inputs?.props;
+    const accessAlias = inputs?.credentials?.Alias;
+    const credentials: ICredentials = await core.getCredential(accessAlias);
+    this.logger.debug(`credentials: ${JSON.stringify(credentials)}`);
+    const args = inputs?.args;
+    const projectName: string = inputs.appName;
+    const curPath: string = inputs?.path;
 
     const serviceConfig: ServiceConfig = properties?.service;
     const functionConfig: FunctionConfig = properties?.function;
@@ -58,22 +60,22 @@ export default class FcBaseComponent {
 
     return {
       projectName,
-      accessAlias,
       fcService,
       fcFunction,
       fcTriggers,
       args,
+      curPath,
     };
   }
 
-  async deploy(inputs): Promise<any> {
+  async deploy(inputs: IInputs): Promise<any> {
     const {
       projectName,
-      accessAlias,
       fcService,
       fcFunction,
       fcTriggers,
       args,
+      curPath,
     } = await this.handlerInputs(inputs);
     await fcService.preparePulumiCode();
     const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
@@ -101,9 +103,9 @@ export default class FcBaseComponent {
       }
     }
     // 部署 fc 资源
-    const pulumiComponentIns = await core.load('alibaba/pulumi-alibaba');
+    const pulumiComponentIns = await core.load('pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
-    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp, isSilent ? '-s' : undefined);
+    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, isSilent ? '-s' : undefined);
     const pulumiRes = await pulumiComponentIns.up(pulumiInputs);
     if (pulumiRes?.stderr && pulumiRes?.stderr !== '') {
       this.logger.error(`deploy error: ${pulumiRes?.stderr}`);
@@ -113,14 +115,14 @@ export default class FcBaseComponent {
     return pulumiRes?.stdout;
   }
 
-  async remove(inputs): Promise<any> {
+  async remove(inputs: IInputs): Promise<any> {
     const {
       projectName,
-      accessAlias,
       fcService,
       fcFunction,
       fcTriggers,
       args,
+      curPath,
     } = await this.handlerInputs(inputs);
 
     const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
@@ -147,9 +149,9 @@ export default class FcBaseComponent {
       this.logger.error('please deploy resource first');
       return;
     }
-    const pulumiComponentIns = await core.load('alibaba/pulumi-alibaba');
+    const pulumiComponentIns = await core.load('pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
-    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, accessAlias, 'pulumi-alibaba', pulumiComponentProp, isSilent ? '-s' : undefined);
+    const pulumiInputs = genComponentInputs(fcService.credentials, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, isSilent ? '-s' : undefined);
 
     let pulumiRes;
     if (nonOptionsArg === 'service') {
