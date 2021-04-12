@@ -1,9 +1,10 @@
 {
-  "name": "heimanba",
+  "name": "fc-base",
   "version": "0.0.1",
+  "main": "./dist/index.js",
   "dependencies": {
     "@types/fs-extra": "^9.0.0",
-    "@serverless-devs/core": "^0.0.37",
+    "@serverless-devs/core": "^0.0.53",
     "deep-equal": "^2.0.0",
     "@types/lodash": "^4.14.168",
     "colors": "^1.4.0",
@@ -31,7 +32,7 @@
     "prebuild": "rimraf dist",
     "build": "npx tsc -p tsconfig.json",
     "postbuild": "./scripts/post-build.sh",
-    "postinstall": "node ./scripts/post-install.js",
+    "postinstall": "node ./dist/scripts/post-install.js",
     "build:component": "npx webpack --mode=production",
     "publish": "npm run build:component && s platform publish",
     "test": "jest",
@@ -52,5 +53,6 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node"
-  }
+  },
+  "__npminstall_done": false
 }
