@@ -41,3 +41,4 @@ lerna-debug.log*
 **/.env
 dist/lib/utils/pulumi-plugin/
 .oss_cfg
+package-lock.json

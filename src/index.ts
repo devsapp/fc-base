@@ -16,6 +16,18 @@ const SUPPORTED_REMOVE_ARGS = ['service', 'function', 'trigger'];
 export default class FcBaseComponent {
   @core.HLogger('FC-BASE') logger: core.ILogger;
 
+  async report(componentName: string, command: string, accountID?: string, access?: string): Promise<void> {
+    let uid: string = accountID;
+    if (_.isEmpty(accountID)) {
+      const credentials: ICredentials = await core.getCredential(access);
+      uid = credentials.AccountID;
+    }
+
+    core.reportComponent(command, {
+      command: componentName,
+      uid,
+    });
+  }
   // 解析入参
   async handlerInputs(inputs: IInputs) {
     const properties: IProperties = inputs?.props;
@@ -81,6 +93,7 @@ export default class FcBaseComponent {
       curPath,
       access,
     } = await this.handlerInputs(inputs);
+    await this.report('fc-base', 'deploy', fcService.credentials.AccountID);
     await fcService.preparePulumiCode();
     const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
     const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
@@ -130,7 +143,7 @@ export default class FcBaseComponent {
       curPath,
       access,
     } = await this.handlerInputs(inputs);
-
+    await this.report('fc-base', 'remove', fcService.credentials.AccountID);
     const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
     const nonOptionsArgs = parsedArgs.data?._;
     const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
