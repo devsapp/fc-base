@@ -15,7 +15,13 @@ const PULUMI_CODE_DIR: string = path.join(CODE_LIB_PATH, 'utils', 'pulumi');
 const PULUMI_CODE_FILE: string = path.join(PULUMI_CODE_DIR, 'index.js');
 const PULUMI_PACKAGE_FILE: string = path.join(PULUMI_CODE_DIR, 'package.json');
 const PULUMI_PACKAGE_LOCK_FILE: string = path.join(PULUMI_CODE_DIR, 'package-lock.json');
-const PULUMI_LOCAL_PLUGIN_PATH = path.join(CODE_LIB_PATH, 'utils', 'pulumi-plugin');
+// const PULUMI_LOCAL_PLUGIN_PATH = path.join(CODE_LIB_PATH, 'utils', 'pulumi-plugin');
+const ALICLOUD_PLUGIN_VERSION = 'v2.38.0';
+const ALICLOUD_PLUGIN_ZIP_FILE_NAME = `pulumi-resource-alicloud-${ALICLOUD_PLUGIN_VERSION}.tgz`;
+const OSS_BUCKET_NAME = 'serverless-pulumi';
+const OSS_OBJECT_KEY = `alicloud-plugin/${ALICLOUD_PLUGIN_ZIP_FILE_NAME}`;
+const OSS_ACCELERATE_DOMAIN = `${OSS_BUCKET_NAME}.oss-accelerate.aliyuncs.com`;
+const ALICLOUD_PLUGIN_DOWNLOAD_URL = `${OSS_ACCELERATE_DOMAIN}/${OSS_OBJECT_KEY}`;
 export abstract class FcBase {
   @HLogger('FC-BASE') logger: ILogger;
 
@@ -236,7 +242,10 @@ export abstract class FcBase {
 
     this.logger.debug('installing pulumi plugin from local.');
     const pulumiComponentIns = await load('pulumi-alibaba');
-    await pulumiComponentIns.installPluginFromLocal({ args: PULUMI_LOCAL_PLUGIN_PATH });
+    await pulumiComponentIns.installPluginFromUrl({ props: {
+      url: ALICLOUD_PLUGIN_DOWNLOAD_URL,
+      version: ALICLOUD_PLUGIN_VERSION,
+    } });
 
     this.logger.debug(`installing dependencies under ${PULUMI_CODE_DIR}`);
     execSync('npm i', { cwd: this.pulumiStackDir, stdio: 'ignore' });
