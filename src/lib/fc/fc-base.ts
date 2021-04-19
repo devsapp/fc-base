@@ -132,7 +132,7 @@ export abstract class FcBase {
     this.logger.debug(`write content: ${JSON.stringify(conf)} to ${this.configFile}`);
   }
 
-  async updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean): Promise<void> {
+  async updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void> {
     if (_.isEmpty(resource)) {
       this.logger.warn(`empty ${keyInConfFile} resource`);
       return;
@@ -142,7 +142,12 @@ export abstract class FcBase {
     const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
     const resourcesInGlobal = fcConfigInGlobal[keyInConfFile];
     let isResourcesInGlobalChanged = true;
-    const idxInGlobal = resourcesInGlobal?.findIndex((r) => r[keyInResource] === resource[keyInResource]);
+    const idxInGlobal = resourcesInGlobal?.findIndex((r) => {
+      if (!_.isNil(isResourceHasSameKeyFunc)) {
+        return isResourceHasSameKeyFunc(r, resource);
+      }
+      return r[keyInResource] === resource[keyInResource];
+    });
     if (!_.isNil(idxInGlobal) && idxInGlobal >= 0) {
       this.logger.debug(`find resource: ${JSON.stringify(resource)} in pulumi stack`);
       if (!equal(JSON.parse(JSON.stringify(resource)), resourcesInGlobal[idxInGlobal])) {
@@ -222,10 +227,10 @@ export abstract class FcBase {
     return reomvedResources;
   }
 
-  async addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean): Promise<void> {
+  async addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void> {
     if (await this.configFileExists()) {
       // update
-      await this.updateReourceInConfFile<T>(resource, keyInConfFile, keyInResource, assumeYes);
+      await this.updateReourceInConfFile<T>(resource, keyInConfFile, keyInResource, assumeYes, isResourceHasSameKeyFunc);
     } else {
       // create
       await this.createConfFile<T>(resource, keyInConfFile);

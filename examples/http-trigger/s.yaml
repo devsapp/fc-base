@@ -11,7 +11,7 @@ services:
       service:
         name: qianfeng-fc-base-service
       function:
-        name: qianfeng-fc-base-service
+        name: test-function
         service: qianfeng-fc-base-service
         filename: './code.zip'
         handler: 'index.handler'
@@ -19,8 +19,32 @@ services:
         runtime: nodejs12
         timeout: 60
       triggers:
-        - name: httpTriggerOne
-          function: qianfeng-fc-base-service
+        - name: httpTrigger
+          function: test-function
+          service: qianfeng-fc-base-service
+          type: http
+          config:
+            authType: anonymous
+            methods:
+              - GET
+  fc-base-test-1: #  服务名称
+    # component: fc-base  # 组件名称
+    component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/
+    props: #  组件的属性值
+      region: cn-hangzhou
+      service:
+        name: qianfeng-fc-base-service
+      function:
+        name: test-function-1
+        service: qianfeng-fc-base-service
+        filename: './code.zip'
+        handler: 'index.handler'
+        memorySize: 128
+        runtime: nodejs12
+        timeout: 60
+      triggers:
+        - name: httpTrigger
+          function: test-function-1
           service: qianfeng-fc-base-service
           type: http
           config:

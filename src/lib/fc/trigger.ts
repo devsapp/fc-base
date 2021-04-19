@@ -44,6 +44,10 @@ export class FcTrigger extends FcBase {
   static keyInResource = 'name';
   static configFileName = 'fc-trigger.json';
 
+  static compareTriggerKeys(triggerConfOne: {[key: string]: any}, triggerConfTwo: {[key: string]: any}): boolean {
+    return (triggerConfOne.name === triggerConfTwo.name) && (triggerConfOne.service === triggerConfTwo.service) && (triggerConfOne.function === triggerConfTwo.function);
+  }
+
   constructor(triggerConfig: TriggerConfig, credentials: ICredentials, region: string, serviceName: string, functionName?: string) {
     super(region, credentials);
     this.triggerConfig = triggerConfig;
@@ -296,6 +300,6 @@ export class FcTrigger extends FcBase {
 
 
   async addTriggerInConfFile(assumeYes?: boolean) {
-    await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name', assumeYes);
+    await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name', assumeYes, FcTrigger.compareTriggerKeys);
   }
 }

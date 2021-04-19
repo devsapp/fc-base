@@ -34,6 +34,11 @@ export declare class FcTrigger extends FcBase {
     static keyInConfigFile: string;
     static keyInResource: string;
     static configFileName: string;
+    static compareTriggerKeys(triggerConfOne: {
+        [key: string]: any;
+    }, triggerConfTwo: {
+        [key: string]: any;
+    }): boolean;
     constructor(triggerConfig: TriggerConfig, credentials: ICredentials, region: string, serviceName: string, functionName?: string);
     validateConfig(): void;
     initTriggerConfigFileAttr(): void;
