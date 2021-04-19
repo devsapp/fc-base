@@ -14,10 +14,10 @@ export declare abstract class FcBase {
     pulumiStackDirCheck(): void;
     delResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string): Promise<boolean>;
     createConfFile<T>(resource: T, keyInConfFile: string): Promise<void>;
-    updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean): Promise<void>;
+    updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void>;
     static getResourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]>;
     static delReourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]>;
-    addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean): Promise<void>;
+    addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void>;
     preparePulumiCode(): Promise<void>;
     configFileExists(): Promise<boolean>;
     abstract validateConfig(): void;
