@@ -26,7 +26,12 @@ function deployNonServiceResource(filePath, type, PulumiFn, fcService, fcFunctio
         dependsOn.push(fcFunction[conf.function]);
         parent = fcFunction[conf.function];
       }
-      const fcReource = new PulumiFn(conf.name, conf, { dependsOn, parent });
+      let pulumiResourceName = conf.name;
+      if (type === 'trigger') {
+        // trigger 由 ${name}-${functionName}-${serviceName} 作为唯一标识符
+        pulumiResourceName = pulumiResourceName + '-' + conf.function + '-' + conf.service;
+      }
+      const fcReource = new PulumiFn(pulumiResourceName, conf, { dependsOn, parent });
       Object.assign(res, {
         [conf.name]: fcReource,
       });
