@@ -9,6 +9,12 @@ const triggerConfigFileName = 'fc-trigger.json';
 const keyInFunctionConfigFile = 'function';
 const keyInTriggerConfigFile = 'trigger';
 
+const defaultTimeout = '5m';
+const defaultCustomTimeouts = {
+  create: defaultTimeout,
+  update: defaultTimeout,
+  delete: defaultTimeout,
+};
 function deployNonServiceResource(filePath, type, PulumiFn, fcService, fcFunction) {
   if (!fse.pathExistsSync(filePath)) { return undefined; }
   const fcReourceObj = JSON.parse(fse.readFileSync(filePath, { encoding: 'utf-8' }));
@@ -29,9 +35,9 @@ function deployNonServiceResource(filePath, type, PulumiFn, fcService, fcFunctio
       let pulumiResourceName = conf.name;
       if (type === 'trigger') {
         // trigger 由 ${name}-${functionName}-${serviceName} 作为唯一标识符
-        pulumiResourceName = pulumiResourceName + '-' + conf.function + '-' + conf.service;
+        pulumiResourceName = `${pulumiResourceName }-${ conf.function }-${ conf.service}`;
       }
-      const fcReource = new PulumiFn(pulumiResourceName, conf, { dependsOn, parent });
+      const fcReource = new PulumiFn(pulumiResourceName, conf, { dependsOn, parent, customTimeouts: defaultCustomTimeouts });
       Object.assign(res, {
         [conf.name]: fcReource,
       });

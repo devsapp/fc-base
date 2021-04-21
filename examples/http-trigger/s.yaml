@@ -15,7 +15,7 @@ services:
         service: qianfeng-fc-base-service
         filename: './code.zip'
         handler: 'index.handler'
-        memorySize: 128
+        memorySize: 128000000000000
         runtime: nodejs12
         timeout: 60
       triggers:

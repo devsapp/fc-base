@@ -30,6 +30,7 @@ export default class FcBaseComponent {
   }
   // 解析入参
   async handlerInputs(inputs: IInputs) {
+    process.setMaxListeners(0);
     const properties: IProperties = inputs?.props;
     const access = inputs?.project?.access;
     const credentials: ICredentials = await core.getCredential(access);
