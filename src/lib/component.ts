@@ -13,6 +13,6 @@ export function genComponentInputs(component: string, access: any, appName: stri
     appName,
   };
 
-  Logger.debug('FC-BASE', `inputs of fc base component generated: ${JSON.stringify(inputs)}`);
+  Logger.debug('FC-BASE', `inputs of ${component} component generated: ${JSON.stringify(inputs)}`);
   return inputs;
 }
