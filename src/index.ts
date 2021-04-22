@@ -10,6 +10,7 @@ import _ from 'lodash';
 import { isFile } from './lib/file';
 import { ICredentials } from './lib/profile';
 import { IProperties, IInputs } from './interface';
+import promiseRetry from './lib/retry';
 
 const SUPPORTED_REMOVE_ARGS = ['service', 'function', 'trigger'];
 
@@ -34,7 +35,6 @@ export default class FcBaseComponent {
     const properties: IProperties = inputs?.props;
     const access = inputs?.project?.access;
     const credentials: ICredentials = await core.getCredential(access);
-    this.logger.debug(`credentials: ${JSON.stringify(credentials)}`);
     const args = inputs?.args;
     const projectName: string = inputs?.project?.projectName;
     const appName: string = inputs?.appName;
@@ -121,16 +121,25 @@ export default class FcBaseComponent {
       }
     }
     // 部署 fc 资源
-    const pulumiComponentIns = await core.load('pulumi-alibaba');
+    const pulumiComponentIns = await core.load('devsapp/pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
     const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, isSilent ? '-s' : undefined);
-    const pulumiRes = await pulumiComponentIns.up(pulumiInputs);
-    if (pulumiRes?.stderr && pulumiRes?.stderr !== '') {
-      this.logger.error(`deploy error: ${pulumiRes?.stderr}`);
-      return;
-    }
-    // 返回结果
-    return pulumiRes?.stdout;
+    return promiseRetry(async (retry: any, times: number): Promise<any> => {
+      try {
+        const pulumiRes = await pulumiComponentIns.up(pulumiInputs);
+        if (pulumiRes?.stderr && pulumiRes?.stderr !== '') {
+          this.logger.error(`deploy error: ${pulumiRes?.stderr}`);
+          return;
+        }
+        // 返回结果
+        return pulumiRes?.stdout;
+      } catch (e) {
+        this.logger.debug(`error when deploy, error is: \n${e}`);
+
+        this.logger.log(`\tretry ${times} times`, 'red');
+        retry(e);
+      }
+    });
   }
 
   async remove(inputs: IInputs): Promise<any> {
@@ -169,18 +178,28 @@ export default class FcBaseComponent {
       this.logger.error('please deploy resource first');
       return;
     }
-    const pulumiComponentIns = await core.load('pulumi-alibaba');
+    const pulumiComponentIns = await core.load('devsapp/pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
     const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, isSilent ? '-s' : undefined);
 
     let pulumiRes;
+
     if (nonOptionsArg === 'service') {
       this.logger.info(`waiting for service: ${fcService.serviceConfig.name} to be removed`);
       const fcFunctionsArr = await fcService.getFunctionNames();
 
       if (assumeYes || _.isEmpty(fcFunctionsArr) || await promptForConfirmContinue(`Are you sure to remove service: ${fcService.serviceConfig.name} and functions: [ ${fcFunctionsArr} ] under it?`)) {
         // destroy
-        pulumiRes = await pulumiComponentIns.destroy(pulumiInputs);
+        pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
+          try {
+            return await pulumiComponentIns.destroy(pulumiInputs);
+          } catch (e) {
+            this.logger.debug(`error when remove service, error is: \n${e}`);
+
+            this.logger.log(`\tretry ${times} times`, 'red');
+            retry(e);
+          }
+        });
       } else {
         this.logger.info(`cancel removing service ${fcService.serviceConfig.name}`);
         return;
@@ -197,7 +216,16 @@ export default class FcBaseComponent {
         const isFunctionBeRemoved = await fcFunction.delFunctionInConfFile();
         if (isFunctionBeRemoved) {
           await fcFunction.delTriggersUnderFunction();
-          pulumiRes = await pulumiComponentIns.up(pulumiInputs);
+          pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
+            try {
+              return await pulumiComponentIns.up(pulumiInputs);
+            } catch (e) {
+              this.logger.debug(`error when remove function, error is: \n${e}`);
+
+              this.logger.log(`\tretry ${times} times`, 'red');
+              retry(e);
+            }
+          });
         }
       } else {
         this.logger.info(`cancel removing function ${fcFunction.functionConfig.name}`);
@@ -216,7 +244,18 @@ export default class FcBaseComponent {
           isTriggersBeRemoved = isTriggersBeRemoved || isTriggerBeRemoved;
         }
       }
-      if (isTriggersBeRemoved) { pulumiRes = await pulumiComponentIns.up(pulumiInputs); }
+      if (isTriggersBeRemoved) {
+        pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
+          try {
+            return await pulumiComponentIns.up(pulumiInputs);
+          } catch (e) {
+            this.logger.debug(`error when remove trigger, error is: \n${e}`);
+
+            this.logger.log(`\tretry ${times} times`, 'red');
+            retry(e);
+          }
+        });
+      }
     }
     if (pulumiRes?.stderr) {
       this.logger.error(`remove error:\n ${pulumiRes?.stderr}`);
