@@ -9,7 +9,7 @@ const triggerConfigFileName = 'fc-trigger.json';
 const keyInFunctionConfigFile = 'function';
 const keyInTriggerConfigFile = 'trigger';
 
-const defaultTimeout = '5m';
+const defaultTimeout = '3m';
 const defaultCustomTimeouts = {
   create: defaultTimeout,
   update: defaultTimeout,
