@@ -124,7 +124,7 @@ export default class FcBaseComponent {
     const pulumiComponentIns = await core.load('devsapp/pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
     const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, isSilent ? '-s' : undefined);
-    return promiseRetry(async (retry: any, times: number): Promise<any> => {
+    return await promiseRetry(async (retry: any, times: number): Promise<any> => {
       try {
         const pulumiRes = await pulumiComponentIns.up(pulumiInputs);
         if (pulumiRes?.stderr && pulumiRes?.stderr !== '') {
