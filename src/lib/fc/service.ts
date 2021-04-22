@@ -83,7 +83,7 @@ export class FcService extends FcBase {
     const fcConfigToBeWritten = fcConfigInGlobal;
     if (this.serviceConfig) {
       if (!equal(serviceInGlobal, this.serviceConfig)) {
-        this.logger.warn(`Service ${this.serviceConfig.name} already exists in golbal:\n${JSON.stringify(serviceInGlobal)}.`);
+        this.logger.debug(`Service ${this.serviceConfig.name} already exists in golbal:\n${JSON.stringify(serviceInGlobal)}.`);
         if (assumeYes || await promptForConfirmContinue('Replace service in pulumi stack with the service in current working directory?')) {
           // replace service
           fcConfigToBeWritten.service = this.serviceConfig;

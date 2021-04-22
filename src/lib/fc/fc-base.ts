@@ -151,7 +151,7 @@ export abstract class FcBase {
     if (!_.isNil(idxInGlobal) && idxInGlobal >= 0) {
       this.logger.debug(`find resource: ${JSON.stringify(resource)} in pulumi stack`);
       if (!equal(JSON.parse(JSON.stringify(resource)), resourcesInGlobal[idxInGlobal])) {
-        this.logger.warn(`${keyInConfFile}: ${resource[keyInResource]} already exists in golbal:\n${JSON.stringify(resourcesInGlobal[idxInGlobal])}`);
+        this.logger.debug(`${keyInConfFile}: ${resource[keyInResource]} already exists in golbal:\n${JSON.stringify(resourcesInGlobal[idxInGlobal])}`);
         if (assumeYes || await promptForConfirmContinue(`Replace ${keyInConfFile} in pulumi stack with the ${keyInConfFile} in current working directory?`)) {
           // replace function
           resourcesInGlobal[idxInGlobal] = resource;
@@ -246,7 +246,7 @@ export abstract class FcBase {
     await fse.copy(PULUMI_PACKAGE_LOCK_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_PACKAGE_LOCK_FILE)), { overwrite: true });
 
     this.logger.debug('installing pulumi plugin from local.');
-    const pulumiComponentIns = await load('pulumi-alibaba');
+    const pulumiComponentIns = await load('devsapp/pulumi-alibaba');
     await pulumiComponentIns.installPluginFromUrl({ props: {
       url: ALICLOUD_PLUGIN_DOWNLOAD_URL,
       version: ALICLOUD_PLUGIN_VERSION,
