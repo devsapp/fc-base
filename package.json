@@ -4,7 +4,7 @@
   "main": "./dist/index.js",
   "dependencies": {
     "@types/fs-extra": "^9.0.0",
-    "@serverless-devs/core": "^0.0.63",
+    "@serverless-devs/core": "^0.0.77",
     "deep-equal": "^2.0.0",
     "@types/lodash": "^4.14.168",
     "colors": "^1.4.0",
