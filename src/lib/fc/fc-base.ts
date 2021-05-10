@@ -1,6 +1,6 @@
 import * as fse from 'fs-extra';
 import { isFile, writeStrToFile } from '../file';
-import { HLogger, ILogger, load } from '@serverless-devs/core';
+import * as core from '@serverless-devs/core';
 import equal from 'deep-equal';
 import { promptForConfirmContinue } from '../init/prompt';
 import { ICredentials } from '../profile';
@@ -8,6 +8,8 @@ import * as _ from 'lodash';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
+import { genComponentInputs } from '../component';
+import { genPulumiComponentProp, genPulumiImportFlags } from '../pulumi';
 
 const CODE_LIB_PATH = path.resolve(__dirname, '..');
 const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
@@ -23,17 +25,21 @@ const OSS_OBJECT_KEY = `alicloud-plugin/${ALICLOUD_PLUGIN_ZIP_FILE_NAME}`;
 const OSS_ACCELERATE_DOMAIN = `${OSS_BUCKET_NAME}.oss-accelerate.aliyuncs.com`;
 const ALICLOUD_PLUGIN_DOWNLOAD_URL = `${OSS_ACCELERATE_DOMAIN}/${OSS_OBJECT_KEY}`;
 export abstract class FcBase {
-  @HLogger('FC-BASE') logger: ILogger;
+  @core.HLogger('FC-BASE') logger: core.ILogger;
 
   stackID?: string;
   pulumiStackDir: string;
   configFile?: string;
   readonly credentials: ICredentials;
   readonly region: string;
+  readonly isPulumiImport?: boolean;
+  readonly isPulumiImportProtect?: boolean;
 
-  constructor(region: string, credentials: ICredentials) {
+  constructor(region: string, credentials: ICredentials, isPulumiImport: boolean, isPulumiImportProtect: boolean) {
     this.region = region;
     this.credentials = credentials;
+    this.isPulumiImport = isPulumiImport;
+    this.isPulumiImportProtect = isPulumiImportProtect;
   }
 
   genStackID(serviceName: string): string {
@@ -74,7 +80,7 @@ export abstract class FcBase {
         const resources = this.delReource<T>(resource, configInGlobal[keyInConfFile], keyInResource);
         if (resources === undefined) {
           // 资源在 pulumi stack 中不存在
-          this.logger.warn(`${JSON.stringify(resource)} dose not exist in local pulumi stack.`);
+          this.logger.warn(`${keyInConfFile}: ${JSON.stringify(resource[keyInResource])} dose not exist in local pulumi stack, please deploy it first.`);
           return false;
         }
         // 删除完后没有资源了，则删除文件
@@ -96,9 +102,8 @@ export abstract class FcBase {
         // throw new Error(`There is no ${keyInConfFile} in local pulumi stack`);
       }
     } else {
-      this.logger.warn('there is no resource in pulumi stack');
+      this.logger.warn('there is no resource in pulumi stack, please execute deploy command first!');
       return false;
-      // throw new Error('Please deploy resource first.');
     }
   }
 
@@ -130,6 +135,14 @@ export abstract class FcBase {
     });
     await writeStrToFile(this.configFile, JSON.stringify(conf, null, '  '), 'w', 0o777);
     this.logger.debug(`write content: ${JSON.stringify(conf)} to ${this.configFile}`);
+  }
+
+  static async zeroImportState(stateID: string): Promise<void> {
+    const state: any = await core.getState(stateID);
+    if (!_.isEmpty(state)) {
+      state.isImport = false;
+      await core.setState(stateID, state);
+    }
   }
 
   async updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void> {
@@ -246,14 +259,14 @@ export abstract class FcBase {
     await fse.copy(PULUMI_PACKAGE_LOCK_FILE, path.join(this.pulumiStackDir, path.basename(PULUMI_PACKAGE_LOCK_FILE)), { overwrite: true });
 
     this.logger.debug('installing pulumi plugin from local.');
-    const pulumiComponentIns = await load('devsapp/pulumi-alibaba');
+    const pulumiComponentIns = await core.load('devsapp/pulumi-alibaba');
     await pulumiComponentIns.installPluginFromUrl({ props: {
       url: ALICLOUD_PLUGIN_DOWNLOAD_URL,
       version: ALICLOUD_PLUGIN_VERSION,
     } });
 
     this.logger.debug(`installing dependencies under ${PULUMI_CODE_DIR}`);
-    execSync('npm i', { cwd: this.pulumiStackDir, stdio: 'ignore' });
+    execSync('npm install', { cwd: this.pulumiStackDir, stdio: 'ignore' });
     // this.logger.debug(`stdout of npm i under ${targetDir}: ${stdout.toString('utf8')}`);
   }
 
@@ -262,6 +275,44 @@ export abstract class FcBase {
       return true;
     }
     return false;
+  }
+
+  async pulumiImport(access: string, appName: string, projectName: string, curPath: any, type: string, resourceName: string, resourceID: string, parentUrn?: string): Promise<void> {
+    this.logger.debug(`importing ${type} ${resourceID} from remote to local stack.`);
+    const importFlag = genPulumiImportFlags(this.isPulumiImportProtect, this.stackID, parentUrn);
+
+    let resourceType: string;
+    switch (type) {
+      case 'service': {
+        resourceType = 'alicloud:fc/service:Service';
+        break;
+      }
+      case 'function': {
+        resourceType = 'alicloud:fc/function:Function';
+        break;
+      }
+      case 'trigger': {
+        resourceType = 'alicloud:fc/trigger:Trigger';
+        break;
+      }
+      default: {
+        throw new Error(`Unsupported pulumi resource type: ${type}`);
+      }
+    }
+    const args = `${resourceType } ${ resourceName } ${ resourceID } ${ importFlag }`;
+    const pulumiComponentIns = await core.load('devsapp/pulumi-alibaba');
+    const pulumiComponentProp = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
+    const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, args);
+
+    try {
+      await pulumiComponentIns.import(pulumiInputs);
+    } catch (e) {
+      if (e.message.includes('does not exist')) {
+        throw new Error(`Resouce ${resourceType}: ${resourceID} dose not exist online, please delete 'import' and 'protect' option and retry!\n`);
+      }
+      throw e;
+    }
+    this.logger.debug(`${type} ${resourceID} is imported.`);
   }
 
   abstract validateConfig(): void;

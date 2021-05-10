@@ -20,6 +20,8 @@ export interface FunctionConfig {
     instanceType?: string;
     ossBucket?: string;
     ossKey?: string;
+    import?: boolean;
+    protect?: boolean;
 }
 export interface CustomContainerConfig {
     image: string;
@@ -36,7 +38,10 @@ export declare class FcFunction extends FcBase {
     validateConfig(): void;
     getTriggerNames(): Promise<string[]>;
     delTriggersUnderFunction(): Promise<void>;
-    initFunctionConfigFileAttr(): void;
+    init(): Promise<void>;
+    importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    static genStateID(region: string, serviceName: string, functionName: string): string;
     delFunctionInConfFile(): Promise<boolean>;
     addFunctionInConfFile(assumeYes?: boolean): Promise<void>;
+    clear(): Promise<void>;
 }

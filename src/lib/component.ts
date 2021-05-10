@@ -1,6 +1,6 @@
 import { Logger } from '@serverless-devs/core';
 
-export function genComponentInputs(component: string, access: any, appName: string, projectName: string, props: any, path?: string, args?: string) {
+export function genComponentInputs(component: string, access: any, appName: string, projectName: string, props: any, path?: any, args?: string) {
   const inputs: {[key: string]: any} = {
     project: {
       component,

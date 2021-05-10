@@ -5,17 +5,18 @@ import { FcTrigger } from './lib/fc/trigger';
 import { IInputs } from './interface';
 export default class FcBaseComponent {
     logger: core.ILogger;
+    access: string;
+    appName: string;
+    projectName: string;
+    curPath: any;
     report(componentName: string, command: string, accountID?: string, access?: string): Promise<void>;
     handlerInputs(inputs: IInputs): Promise<{
-        appName: string;
-        projectName: string;
         fcService: FcService;
         fcFunction: FcFunction;
         fcTriggers: FcTrigger[];
         args: string;
-        curPath: string;
-        access: string;
     }>;
+    importResource(fcService: FcService, fcFunction?: FcFunction, fcTriggers?: FcTrigger[]): Promise<void>;
     deploy(inputs: IInputs): Promise<any>;
     remove(inputs: IInputs): Promise<any>;
 }

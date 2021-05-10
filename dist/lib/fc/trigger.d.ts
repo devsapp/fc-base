@@ -6,6 +6,8 @@ import { FcBase } from './fc-base';
 import { ICredentials } from '../profile';
 export interface TriggerConfig {
     name: string;
+    import?: boolean;
+    protect?: boolean;
     function?: string;
     service?: string;
     type: 'oss' | 'log' | 'timer' | 'http' | 'mns_topic' | 'cdn_events';
@@ -41,10 +43,13 @@ export declare class FcTrigger extends FcBase {
     }): boolean;
     constructor(triggerConfig: TriggerConfig, credentials: ICredentials, region: string, serviceName: string, functionName?: string);
     validateConfig(): void;
-    initTriggerConfigFileAttr(): void;
+    init(): Promise<void>;
+    importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    static genStateID(region: string, serviceName: string, functionName: string, triggerName: string): string;
     resolveTriggerIntoPulumiFormat(): any;
     getTriggerConfigInPulumiFormat(): string;
     getSourceArn(): string | undefined;
     delTriggerInConfFile(): Promise<boolean>;
     addTriggerInConfFile(assumeYes?: boolean): Promise<void>;
+    clear(): Promise<void>;
 }

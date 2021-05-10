@@ -11,6 +11,8 @@ export interface ServiceConfig {
     role?: string;
     vpcConfig?: VpcConfig;
     nasConfig?: NasConfig;
+    import?: boolean;
+    protect?: boolean;
 }
 export declare function genStackId(accountId: string, region: string, serviceName: string): string;
 export declare class FcService extends FcBase {
@@ -20,9 +22,12 @@ export declare class FcService extends FcBase {
     static configFileName: string;
     constructor(serviceConfig: ServiceConfig, credentials: ICredentials, region: string);
     validateConfig(): void;
-    initServiceConfigFileAttr(): void;
+    init(): Promise<void>;
+    importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    clear(): Promise<void>;
     createServiceConfFile(): Promise<void>;
     getFunctionNames(): Promise<string[]>;
+    getFunctionAndTriggerNamesMap(): Promise<any>;
     updateServiceInConfFile(assumeYes?: boolean): Promise<void>;
     addServiceInConfFile(assumeYes?: boolean): Promise<void>;
 }
