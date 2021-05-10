@@ -5,10 +5,13 @@ import { LogTriggerConfig, instanceOfLogTriggerConfig } from '../log';
 import * as _ from 'lodash';
 import { FcBase } from './fc-base';
 import { ICredentials } from '../profile';
+import * as core from '@serverless-devs/core';
 // TODO: [TableStoreTriggerConfig, RdsTriggerConfig, DomainConfig, apiGateway]
 
 export interface TriggerConfig {
   name: string;
+  import?: boolean;
+  protect?: boolean;
   function?: string;
   service?: string;
   type: 'oss' | 'log' | 'timer' | 'http' | 'mns_topic' | 'cdn_events';
@@ -49,8 +52,10 @@ export class FcTrigger extends FcBase {
   }
 
   constructor(triggerConfig: TriggerConfig, credentials: ICredentials, region: string, serviceName: string, functionName?: string) {
-    super(region, credentials);
+    super(region, credentials, triggerConfig.import, triggerConfig.protect);
     this.triggerConfig = triggerConfig;
+    delete this.triggerConfig.import;
+    delete this.triggerConfig.protect;
     this.resolvedTriggerConfig = this.resolveTriggerIntoPulumiFormat();
     this.serviceName = serviceName;
     if (!_.isNil(functionName)) { this.functionName = functionName; }
@@ -121,9 +126,23 @@ export class FcTrigger extends FcBase {
       throw new Error(`Please make function attribute of trigger: ${this.triggerConfig.name} consistent with functionName in serviceConfig`);
     }
   }
-
-  initTriggerConfigFileAttr(): void {
+  async init(): Promise<void> {
     this.initConfigFileAttr(this.serviceName, FcTrigger.configFileName);
+  }
+  async importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
+    const pulumiImportStateID: string = FcTrigger.genStateID(this.region, this.serviceName, this.functionName, this.triggerConfig.name);
+    const pulumiImportState: any = await core.getState(pulumiImportStateID);
+    if (this.isPulumiImport && !pulumiImportState?.isImport) {
+      const resourceName = `${this.triggerConfig.name}-${this.functionName}`;
+      const resourceID = `${this.serviceName}:${this.functionName}:${this.triggerConfig.name}`;
+      const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function::${this.functionName}`;
+      await this.pulumiImport(access, appName, projectName, curPath, 'trigger', resourceName, resourceID, parentUrn);
+      await core.setState(pulumiImportStateID, { isImport: true });
+    }
+  }
+
+  static genStateID(region: string, serviceName: string, functionName: string, triggerName: string): string {
+    return `${region}-${serviceName}-${functionName}-${triggerName}`;
   }
 
   resolveTriggerIntoPulumiFormat(): any {
@@ -301,5 +320,20 @@ export class FcTrigger extends FcBase {
 
   async addTriggerInConfFile(assumeYes?: boolean) {
     await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name', assumeYes, FcTrigger.compareTriggerKeys);
+  }
+
+  async clear(): Promise<void> {
+    const clearVm = core.spinner('clearing...');
+    try {
+      // trigger
+      const triggerStateID: string = FcTrigger.genStateID(this.region, this.serviceName, this.functionName, this.triggerConfig.name);
+      await FcBase.zeroImportState(triggerStateID);
+      this.logger.debug('zero trigger import state done');
+
+      clearVm.succeed('clear done.');
+    } catch (e) {
+      clearVm.fail('clear error.');
+      throw e;
+    }
   }
 }

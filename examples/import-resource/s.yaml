@@ -1,0 +1,35 @@
+edition: 1.0.0          #  命令行YAML规范版本，遵循语义化版本（Semantic Versioning）规范
+name: fcBaseApp         #  项目名称
+access: default  #  秘钥别名
+
+services:
+  test-1: #  服务名称
+    # component: fc-base  # 组件名称
+    component: ${path(../..)}
+    props: #  组件的属性值
+      region: cn-shanghai
+      service:
+        name: qianfeng-fc-service
+        import: true
+        protect: false
+      function:
+        name: test-function
+        service: qianfeng-fc-service
+        filename: './code.zip'
+        handler: 'index.handler'
+        memorySize: 128
+        runtime: nodejs12
+        timeout: 60
+        import: true
+        protect: false
+      triggers:
+        - name: httpTrigger
+          function: test-function
+          service: qianfeng-fc-service
+          type: http
+          import: true
+          protect: false
+          config:
+            authType: anonymous
+            methods:
+              - GET

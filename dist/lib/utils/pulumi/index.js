@@ -35,7 +35,7 @@ function deployNonServiceResource(filePath, type, PulumiFn, fcService, fcFunctio
       let pulumiResourceName = conf.name;
       if (type === 'trigger') {
         // trigger 由 ${name}-${functionName}-${serviceName} 作为唯一标识符
-        pulumiResourceName = `${pulumiResourceName }-${ conf.function }-${ conf.service}`;
+        pulumiResourceName = `${pulumiResourceName }-${ conf.function }`;
       }
       const fcReource = new PulumiFn(pulumiResourceName, conf, { dependsOn, parent, customTimeouts: defaultCustomTimeouts });
       Object.assign(res, {
@@ -50,11 +50,11 @@ const fcServiceConfigFile = path.join(__dirname, serviceConfigFileName);
 const fcFunctionConfigFile = path.join(__dirname, functionConfigFileName);
 const fcTriggerConfigFile = path.join(__dirname, triggerConfigFileName);
 
-if (fse.pathExistsSync(fcServiceConfigFile)) {
-  const fcServiceObj = JSON.parse(fse.readFileSync(fcServiceConfigFile, { encoding: 'utf-8' }));
-  const serviceConf = fcServiceObj.service;
-  const fcService = new alicloud.fc.Service(serviceConf.name, serviceConf);
 
+const fcServiceObj = JSON.parse(fse.readFileSync(fcServiceConfigFile, { encoding: 'utf-8' }));
+const serviceConf = fcServiceObj.service;
+const fcService = new alicloud.fc.Service(serviceConf.name, serviceConf);
+if (fse.pathExistsSync(fcFunctionConfigFile)) {
   const fcFunction = deployNonServiceResource(fcFunctionConfigFile, keyInFunctionConfigFile, alicloud.fc.Function, fcService);
   deployNonServiceResource(fcTriggerConfigFile, keyInTriggerConfigFile, alicloud.fc.Trigger, fcService, fcFunction);
 }

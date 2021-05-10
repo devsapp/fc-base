@@ -16,6 +16,14 @@ Service:
     Authorities:
       - 函数计算全部权限
 Properties:
+  import:
+    Description: 是否导入线上资源
+    Required: false
+    Type: Boolean
+  protect:
+    Description: 导入的线上资源是否允许删除
+    Required: false
+    Type: Boolean
   region:
     Description: 地域
     Required: true

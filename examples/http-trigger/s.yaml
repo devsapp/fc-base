@@ -5,7 +5,7 @@ access: default  #  秘钥别名
 services:
   fc-base-test: #  服务名称
     # component: fc-base  # 组件名称
-    component: /Users/zqf/Documents/git_proj/serverless-devs-component/fc-base-alibaba-component/
+    component: ${path(../..)}
     props: #  组件的属性值
       region: cn-hangzhou
       service:
@@ -15,7 +15,7 @@ services:
         service: qianfeng-fc-base-service
         filename: './code.zip'
         handler: 'index.handler'
-        memorySize: 128000000000000
+        memorySize: 128
         runtime: nodejs12
         timeout: 60
       # triggers:

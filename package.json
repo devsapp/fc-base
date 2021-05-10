@@ -1,10 +1,10 @@
 {
   "name": "fc-base",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "main": "./dist/index.js",
   "dependencies": {
     "@types/fs-extra": "^9.0.0",
-    "@serverless-devs/core": "^0.0.77",
+    "@serverless-devs/core": "^0.0.x",
     "deep-equal": "^2.0.0",
     "@types/lodash": "^4.14.168",
     "colors": "^1.4.0",

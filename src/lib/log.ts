@@ -26,13 +26,3 @@ export interface LogTriggerJobConfig {
 export interface LogTriggerSourceConfig {
   logstore: string;
 }
-
-// export function transformLogConfig(logConfig: LogConfig) {
-//   if (logConfig) {
-//     return {
-//       project: logConfig.Project || '',
-//       logstore: logConfig.LogStore || ''
-//     }
-//   }
-//   return null;
-// }
