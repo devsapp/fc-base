@@ -2,7 +2,7 @@ import { OssTriggerConfig } from '../oss';
 import { CdnTriggerConfig } from '../cdn';
 import { MnsTriggerConfig } from '../mns';
 import { LogTriggerConfig } from '../log';
-import { FcBase } from './fc-base';
+import FcBase from './fc-base';
 import { ICredentials } from '../profile';
 export interface TriggerConfig {
     name: string;
@@ -43,8 +43,10 @@ export declare class FcTrigger extends FcBase {
     }): boolean;
     constructor(triggerConfig: TriggerConfig, credentials: ICredentials, region: string, serviceName: string, functionName?: string);
     validateConfig(): void;
-    init(): Promise<void>;
+    init(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    isImported(): Promise<boolean>;
     importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
     static genStateID(region: string, serviceName: string, functionName: string, triggerName: string): string;
     resolveTriggerIntoPulumiFormat(): any;
     getTriggerConfigInPulumiFormat(): string;

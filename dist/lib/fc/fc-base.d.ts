@@ -1,6 +1,6 @@
 import * as core from '@serverless-devs/core';
 import { ICredentials } from '../profile';
-export declare abstract class FcBase {
+export default abstract class FcBase {
     logger: core.ILogger;
     stackID?: string;
     pulumiStackDir: string;
@@ -19,6 +19,7 @@ export declare abstract class FcBase {
     static zeroImportState(stateID: string): Promise<void>;
     updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void>;
     static getResourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]>;
+    destroy(name: string, access: string, appName: string, projectName: string, curPath: any, promptMsg: string, targetUrn?: string, flags?: any): Promise<any>;
     static delReourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]>;
     addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void>;
     preparePulumiCode(): Promise<void>;

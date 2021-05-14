@@ -1,7 +1,7 @@
 import { LogConfig } from '../log';
 import { VpcConfig } from '../vpc';
 import { NasConfig } from '../nas';
-import { FcBase } from './fc-base';
+import FcBase from './fc-base';
 import { writeStrToFile } from '../file';
 import * as fse from 'fs-extra';
 import equal from 'deep-equal';
@@ -14,7 +14,6 @@ import { FcTrigger } from './trigger';
 import { genComponentInputs } from '../component';
 import { genPulumiComponentProp } from '../pulumi';
 import * as core from '@serverless-devs/core';
-import { getState, setState } from '@serverless-devs/core';
 
 export interface ServiceConfig {
   name: string;
@@ -51,9 +50,21 @@ export class FcService extends FcBase {
       throw new Error('Please add serviceConfig in your s.yml/yaml');
     }
   }
-  async init(): Promise<void> {
+  async init(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
     this.initConfigFileAttr(this.serviceConfig.name, FcService.configFileName);
+    await this.importResource(access, appName, projectName, curPath);
   }
+
+  static genStateID(region: string, serviceName: string): string {
+    return `${region}-${serviceName}`;
+  }
+
+  async isImported(): Promise<boolean> {
+    const pulumiImportStateID: string = FcService.genStateID(this.region, this.serviceConfig.name);
+    const pulumiImportState: any = await core.getState(pulumiImportStateID);
+    return pulumiImportState?.isImport;
+  }
+
   async importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
     await this.preparePulumiCode();
     // pulumi stack init
@@ -62,13 +73,31 @@ export class FcService extends FcBase {
     const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, 'init');
     await pulumiComponentIns.stack(pulumiInputs);
 
-    const pulumiImportStateID = `${this.region}-${this.serviceConfig.name}`;
-    const pulumiImportState: any = await getState(pulumiImportStateID);
-    if (this.isPulumiImport && !pulumiImportState?.isImport) {
+    if (this.isPulumiImport && !await this.isImported()) {
       const resourceName = this.serviceConfig.name;
       const resourceID = `${this.serviceConfig.name}`;
       await this.pulumiImport(access, appName, projectName, curPath, 'service', resourceName, resourceID);
-      await setState(pulumiImportStateID, { isImport: true });
+      await core.setState(FcService.genStateID(this.region, this.serviceConfig.name), { isImport: true });
+    }
+  }
+
+  async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
+    const fcFunctionsArr = await this.getFunctionNames();
+    let promptMsg: string;
+    if (fcFunctionsArr.length === 0) {
+      promptMsg = `Are you sure to remove service: ${this.serviceConfig.name}?`;
+    } else if (fcFunctionsArr.length === 1) {
+      promptMsg = `Are you sure to remove service: ${this.serviceConfig.name} and function: ${fcFunctionsArr}?`;
+    } else {
+      promptMsg = `Are you sure to remove service: ${this.serviceConfig.name} and functions: ${fcFunctionsArr}?`;
+    }
+
+    const res: any = await this.destroy(this.serviceConfig.name, access, appName, projectName, curPath, promptMsg, undefined, flags);
+    if (_.isEmpty(res?.stderr)) {
+      await this.clear();
+      return res;
+    } else {
+      throw new Error(res?.stderr);
     }
   }
 
@@ -104,6 +133,7 @@ export class FcService extends FcBase {
       clearVm.fail('clear error.');
       throw e;
     }
+    this.logger.info(`please make import option to be false in trigger: ${this.serviceConfig.name} and functions/triggers under it.`);
   }
 
   async createServiceConfFile(): Promise<void> {

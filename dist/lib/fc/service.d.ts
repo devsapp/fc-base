@@ -1,7 +1,7 @@
 import { LogConfig } from '../log';
 import { VpcConfig } from '../vpc';
 import { NasConfig } from '../nas';
-import { FcBase } from './fc-base';
+import FcBase from './fc-base';
 import { ICredentials } from '../profile';
 export interface ServiceConfig {
     name: string;
@@ -22,8 +22,11 @@ export declare class FcService extends FcBase {
     static configFileName: string;
     constructor(serviceConfig: ServiceConfig, credentials: ICredentials, region: string);
     validateConfig(): void;
-    init(): Promise<void>;
+    init(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    static genStateID(region: string, serviceName: string): string;
+    isImported(): Promise<boolean>;
     importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
     clear(): Promise<void>;
     createServiceConfFile(): Promise<void>;
     getFunctionNames(): Promise<string[]>;
