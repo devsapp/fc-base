@@ -9,12 +9,12 @@ services:
     props: #  组件的属性值
       region: cn-shanghai
       service:
-        name: qianfeng-fc-service
+        name: qianfeng-demo
         import: true
         protect: false
       function:
-        name: test-function
-        service: qianfeng-fc-service
+        name: test-oss
+        service: qianfeng-demo
         filename: './code.zip'
         handler: 'index.handler'
         memorySize: 128
@@ -22,14 +22,3 @@ services:
         timeout: 60
         import: true
         protect: false
-      triggers:
-        - name: httpTrigger
-          function: test-function
-          service: qianfeng-fc-service
-          type: http
-          import: true
-          protect: false
-          config:
-            authType: anonymous
-            methods:
-              - GET

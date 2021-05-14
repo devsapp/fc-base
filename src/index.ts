@@ -5,7 +5,6 @@ import { genPulumiComponentProp } from './lib/pulumi';
 import { genComponentInputs } from './lib/component';
 import { FcFunction, FunctionConfig } from './lib/fc/function';
 import { TriggerConfig, FcTrigger } from './lib/fc/trigger';
-import { promptForConfirmContinue } from './lib/init/prompt';
 import _ from 'lodash';
 import { isFile } from './lib/file';
 import { ICredentials } from './lib/profile';
@@ -56,12 +55,12 @@ export default class FcBaseComponent {
     this.logger.debug(`instantiate serviceConfig with : ${JSON.stringify(serviceConfig)}`);
     const fcService = new FcService(serviceConfig, credentials, region);
     fcService.validateConfig();
-    await fcService.init();
+    await fcService.init(this.access, this.appName, this.projectName, this.curPath);
     if (!_.isEmpty(functionConfig)) {
       this.logger.debug(`functionConfig not empty: ${JSON.stringify(functionConfig)}, instantiate it.`);
       fcFunction = new FcFunction(functionConfig, credentials, region, serviceConfig?.name);
       fcFunction.validateConfig();
-      await fcFunction.init();
+      await fcFunction.init(this.access, this.appName, this.projectName, this.curPath);
     }
 
     if (!_.isEmpty(triggersConfig)) {
@@ -69,7 +68,7 @@ export default class FcBaseComponent {
       for (const triggerConf of triggersConfig) {
         const fcTrigger: FcTrigger = new FcTrigger(triggerConf, credentials, region, serviceConfig?.name, functionConfig?.name);
         fcTrigger.validateConfig();
-        await fcTrigger.init();
+        await fcTrigger.init(this.access, this.appName, this.projectName, this.curPath);
         fcTriggers.push(fcTrigger);
       }
     }
@@ -82,18 +81,6 @@ export default class FcBaseComponent {
     };
   }
 
-  async importResource(fcService: FcService, fcFunction?: FcFunction, fcTriggers?: FcTrigger[]): Promise<void> {
-    await fcService.importResource(this.access, this.appName, this.projectName, this.curPath);
-    if (!_.isEmpty(fcFunction)) {
-      await fcFunction.importResource(this.access, this.appName, this.projectName, this.curPath);
-    }
-    if (!_.isEmpty(fcTriggers)) {
-      for (const fcTrigger of fcTriggers) {
-        await fcTrigger.importResource(this.access, this.appName, this.projectName, this.curPath);
-      }
-    }
-  }
-
   async deploy(inputs: IInputs): Promise<any> {
     const {
       fcService,
@@ -102,13 +89,12 @@ export default class FcBaseComponent {
       args,
     } = await this.handlerInputs(inputs);
     await this.report('fc-base', 'deploy', fcService.credentials.AccountID);
-    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
+    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assume-yes', 's', 'silent'] });
+    const argsData: any = parsedArgs?.data || {};
+    const assumeYes = argsData.y || argsData['assume-yes'];
+    const isSilent = argsData.s || argsData.silent;
+    const isDebug = argsData.debug || process.env?.temp_params?.includes('--debug');
 
-    const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
-    const isSilent = parsedArgs.data?.s || parsedArgs.data?.silent;
-    const isDebug = parsedArgs.data?.debug || process.env?.temp_params?.includes('--debug');
-
-    await this.importResource(fcService, fcFunction, fcTriggers);
     /**
      * 初始化中间文件:
      *   1. 创建缓存文件夹
@@ -158,11 +144,12 @@ export default class FcBaseComponent {
       args,
     } = await this.handlerInputs(inputs);
     await this.report('fc-base', 'remove', fcService.credentials.AccountID);
-    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assumeYes', 's', 'silent'] });
-    const nonOptionsArgs = parsedArgs.data?._;
-    const assumeYes = parsedArgs.data?.y || parsedArgs.data?.assumeYes;
-    const isSilent = parsedArgs.data?.s || parsedArgs.data?.silent;
-    const isDebug = parsedArgs.data?.debug;
+    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assume-yes', 's', 'silent'] });
+    const argsData: any = parsedArgs?.data || {};
+    const nonOptionsArgs = argsData._;
+    const assumeYes = argsData.y || argsData['assume-yes'];
+    const isSilent = argsData.s || argsData.silent;
+    const isDebug = argsData.debug;
     if (_.isEmpty(nonOptionsArgs)) {
       this.logger.error(' error: expects argument.');
       // help info
@@ -185,101 +172,52 @@ export default class FcBaseComponent {
       return;
     }
 
-    const pulumiComponentIns = await core.load('devsapp/pulumi-alibaba');
-
-    const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
-    const pulumiComponentArgs = (isSilent ? '-s' : '') + (isDebug ? '--debug' : '');
-    const pulumiInputs = genComponentInputs('pulumi-alibaba', this.access, this.appName, `${this.projectName}-pulumi-project`, pulumiComponentProp, this.curPath, pulumiComponentArgs);
-
-    let pulumiRes;
-
+    const flags: any = { isDebug, isSilent, assumeYes };
     if (nonOptionsArg === 'service') {
       this.logger.info(`waiting for service: ${fcService.serviceConfig.name} to be removed`);
-      if (!await fcService.configFileExists()) {
-        this.logger.warn('there is no resource in pulumi stack, please execute deploy command first!');
-        return 'nothing changes';
-      }
-      const fcFunctionsArr = await fcService.getFunctionNames();
-
-      if (assumeYes || _.isEmpty(fcFunctionsArr) || await promptForConfirmContinue(`Are you sure to remove service: ${fcService.serviceConfig.name} and functions: [ ${fcFunctionsArr} ] under it?`)) {
-        // destroy
-        pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
-          try {
-            return await pulumiComponentIns.destroy(pulumiInputs);
-          } catch (e) {
-            this.logger.debug(`error when remove service, error is: \n${e}`);
-
-            this.logger.log(`\tretry ${times} times`, 'red');
-            retry(e);
-          }
-        });
-        await fcService.clear();
-      } else {
-        this.logger.info(`cancel removing service ${fcService.serviceConfig.name}`);
+      const removeRes: any = await fcService.remove(this.access, this.appName, this.projectName, this.curPath, flags);
+      if (removeRes?.stderr) {
+        this.logger.error(`remove service error:\n ${removeRes?.stderr}`);
         return;
       }
+      return removeRes;
     } else if (nonOptionsArg === 'function') {
       if (_.isEmpty(fcFunction)) {
         this.logger.error(`please add function config in your serverless service: ${this.projectName}`);
         return;
       }
-      this.logger.info(`waiting for function: ${fcFunction.functionConfig.name} to be removed`);
-      const fcTriggersArr: string[] = await fcFunction.getTriggerNames();
-      if (assumeYes || _.isEmpty(fcTriggersArr) || await promptForConfirmContinue(`Remove function: ${fcFunction.functionConfig.name} and triggers: [ ${fcTriggersArr} ] belonging to it?`)) {
-        // update
-        const isFunctionBeRemoved = await fcFunction.delFunctionInConfFile();
-        if (isFunctionBeRemoved) {
-          if (!_.isEmpty(fcTriggersArr)) { await fcFunction.delTriggersUnderFunction(); }
-
-          pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
-            try {
-              return await pulumiComponentIns.up(pulumiInputs);
-            } catch (e) {
-              this.logger.debug(`error when remove function, error is: \n${e}`);
-
-              this.logger.log(`\tretry ${times} times`, 'red');
-              retry(e);
-            }
-          });
-          fcFunction.clear();
+      const removeRes: any[] = [];
+      for (let i = 0; i < fcTriggers.length; i++) {
+        if (await fcTriggers[i].isImported()) {
+          this.logger.info(`waiting for trigger ${fcTriggers[i].triggerConfig.name} to be removed`);
+          const removeTriggerRes: any = await fcTriggers[i].remove(this.access, this.appName, this.projectName, this.curPath, flags);
+          removeRes.push(removeTriggerRes?.stdout);
         }
-      } else {
-        this.logger.info(`cancel removing function ${fcFunction.functionConfig.name}`);
+      }
+      this.logger.info(`waiting for function: ${fcFunction.functionConfig.name} to be removed`);
+      const removeFunctionRes: any = await fcFunction.remove(this.access, this.appName, this.projectName, this.curPath, flags);
+
+      removeRes.push(removeFunctionRes);
+
+      return removeRes;
+    } else if (nonOptionsArg === 'trigger') {
+      if (_.isEmpty(fcTriggers)) {
+        this.logger.error(`please add trigger config in your serverless service: ${this.projectName}`);
         return;
       }
-    } else if (nonOptionsArg === 'trigger') {
-      // update
-      // @ts-ignore
-      const targetTriggerName = parsedArgs.data?.n || parsedArgs.data?.name || undefined;
+      const removeRes: any[] = [];
+      const targetTriggerName = argsData?.n || argsData?.name;
 
-      let isTriggersBeRemoved = false;
-      const removedFcTriggers: FcTrigger[] = [];
       for (let i = 0; i < fcTriggers.length; i++) {
         if (_.isNil(targetTriggerName) || targetTriggerName === fcTriggers[i].triggerConfig.name) {
           this.logger.info(`waiting for trigger ${fcTriggers[i].triggerConfig.name} to be removed`);
-          const isTriggerBeRemoved = await fcTriggers[i].delTriggerInConfFile();
-          if (isTriggerBeRemoved) { removedFcTriggers.push(fcTriggers[i]); }
-          isTriggersBeRemoved = isTriggersBeRemoved || isTriggerBeRemoved;
+          const removeTriggerRes: any = await fcTriggers[i].remove(this.access, this.appName, this.projectName, this.curPath, flags);
+          removeRes.push(removeTriggerRes?.stdout);
         }
       }
-      if (isTriggersBeRemoved) {
-        pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
-          try {
-            return await pulumiComponentIns.up(pulumiInputs);
-          } catch (e) {
-            this.logger.debug(`error when remove trigger, error is: \n${e}`);
+      return removeRes;
+    }
 
-            this.logger.log(`\tretry ${times} times`, 'red');
-            retry(e);
-          }
-        });
-        for (const removedFcTrigger of removedFcTriggers) { removedFcTrigger.clear(); }
-      }
-    }
-    if (pulumiRes?.stderr) {
-      this.logger.error(`remove error:\n ${pulumiRes?.stderr}`);
-      return;
-    }
-    return pulumiRes?.stdout || 'nothing changes';
+    return `not supported args: ${nonOptionsArg}`;
   }
 }

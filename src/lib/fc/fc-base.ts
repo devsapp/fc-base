@@ -10,6 +10,8 @@ import * as os from 'os';
 import { execSync } from 'child_process';
 import { genComponentInputs } from '../component';
 import { genPulumiComponentProp, genPulumiImportFlags } from '../pulumi';
+import promiseRetry from '../retry';
+import { handlerKnownErrors } from '../error';
 
 const CODE_LIB_PATH = path.resolve(__dirname, '..');
 const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
@@ -24,7 +26,7 @@ const OSS_BUCKET_NAME = 'serverless-pulumi';
 const OSS_OBJECT_KEY = `alicloud-plugin/${ALICLOUD_PLUGIN_ZIP_FILE_NAME}`;
 const OSS_ACCELERATE_DOMAIN = `${OSS_BUCKET_NAME}.oss-accelerate.aliyuncs.com`;
 const ALICLOUD_PLUGIN_DOWNLOAD_URL = `${OSS_ACCELERATE_DOMAIN}/${OSS_OBJECT_KEY}`;
-export abstract class FcBase {
+export default abstract class FcBase {
   @core.HLogger('FC-BASE') logger: core.ILogger;
 
   stackID?: string;
@@ -163,6 +165,7 @@ export abstract class FcBase {
     });
     if (!_.isNil(idxInGlobal) && idxInGlobal >= 0) {
       this.logger.debug(`find resource: ${JSON.stringify(resource)} in pulumi stack`);
+
       if (!equal(JSON.parse(JSON.stringify(resource)), resourcesInGlobal[idxInGlobal])) {
         this.logger.debug(`${keyInConfFile}: ${resource[keyInResource]} already exists in golbal:\n${JSON.stringify(resourcesInGlobal[idxInGlobal])}`);
         if (assumeYes || await promptForConfirmContinue(`Replace ${keyInConfFile} in pulumi stack with the ${keyInConfFile} in current working directory?`)) {
@@ -211,6 +214,35 @@ export abstract class FcBase {
       }
     }
     return resourcesName;
+  }
+
+  async destroy(name: string, access: string, appName: string, projectName: string, curPath: any, promptMsg: string, targetUrn?: string, flags?: any): Promise<any> {
+    const { assumeYes, isDebug, isSilent } = flags;
+    let pulumiRes: any;
+    if (assumeYes || await promptForConfirmContinue(promptMsg)) {
+      // const pulumiComponentIns: any = await core.load('devsapp/pulumi-alibaba');
+      const pulumiComponentIns: any = await core.load('/Users/zqf/Documents/git_proj/devsapp/component/pulumi-alibaba/');
+
+      const pulumiComponentProp: any = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
+      let pulumiComponentArgs: string = (isSilent ? '-s' : '') + (isDebug ? '--debug' : '');
+      if (!_.isNil(targetUrn)) {
+        pulumiComponentArgs += ` --target ${targetUrn} --target-dependents`;
+      }
+      const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, pulumiComponentArgs);
+      pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
+        try {
+          const destroyRes: any = await pulumiComponentIns.destroy(pulumiInputs);
+          return destroyRes;
+        } catch (e) {
+          this.logger.debug(`error when remove ${name}, error is: \n${e}`);
+          handlerKnownErrors(e);
+          this.logger.log(`\tretry ${times} times`, 'red');
+          retry(e);
+        }
+      });
+      return pulumiRes;
+    }
+    this.logger.info(`cancel removing ${name}`);
   }
 
   static async delReourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]> {
@@ -304,11 +336,12 @@ export abstract class FcBase {
     const pulumiComponentProp = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
     const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, args);
 
+    // TODO: add retry
     try {
       await pulumiComponentIns.import(pulumiInputs);
     } catch (e) {
       if (e.message.includes('does not exist')) {
-        throw new Error(`Resouce ${resourceType}: ${resourceID} dose not exist online, please delete 'import' and 'protect' option and retry!\n`);
+        throw new Error(`Resouce ${resourceType}: ${resourceID} dose not exist online, please create it without 'import' and 'protect' option!\n`);
       }
       throw e;
     }
