@@ -17,6 +17,7 @@ export default abstract class FcBase {
     delResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string): Promise<boolean>;
     createConfFile<T>(resource: T, keyInConfFile: string): Promise<void>;
     static zeroImportState(stateID: string): Promise<void>;
+    setKVInState(stateID: string, key: string, value: any): Promise<void>;
     updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void>;
     static getResourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]>;
     destroy(name: string, access: string, appName: string, projectName: string, curPath: any, promptMsg: string, targetUrn?: string, flags?: any): Promise<any>;

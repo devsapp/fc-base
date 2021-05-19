@@ -23,11 +23,11 @@ export declare class FcService extends FcBase {
     constructor(serviceConfig: ServiceConfig, credentials: ICredentials, region: string);
     validateConfig(): void;
     init(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
-    static genStateID(region: string, serviceName: string): string;
+    static genStateID(accountID: string, region: string, serviceName: string): string;
     isImported(): Promise<boolean>;
     importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
     remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
-    clear(): Promise<void>;
+    clean(): Promise<void>;
     createServiceConfFile(): Promise<void>;
     getFunctionNames(): Promise<string[]>;
     getFunctionAndTriggerNamesMap(): Promise<any>;

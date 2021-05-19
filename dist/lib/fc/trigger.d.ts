@@ -45,13 +45,14 @@ export declare class FcTrigger extends FcBase {
     validateConfig(): void;
     init(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
     isImported(): Promise<boolean>;
+    genResourceName(): string;
     importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
     remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
-    static genStateID(region: string, serviceName: string, functionName: string, triggerName: string): string;
+    static genStateID(accountID: string, region: string, serviceName: string, functionName: string, triggerName: string): string;
     resolveTriggerIntoPulumiFormat(): any;
     getTriggerConfigInPulumiFormat(): string;
     getSourceArn(): string | undefined;
     delTriggerInConfFile(): Promise<boolean>;
     addTriggerInConfFile(assumeYes?: boolean): Promise<void>;
-    clear(): Promise<void>;
+    clean(): Promise<void>;
 }

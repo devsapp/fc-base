@@ -55,12 +55,12 @@ export class FcService extends FcBase {
     await this.importResource(access, appName, projectName, curPath);
   }
 
-  static genStateID(region: string, serviceName: string): string {
-    return `${region}-${serviceName}`;
+  static genStateID(accountID: string, region: string, serviceName: string): string {
+    return `${accountID}-${region}-${serviceName}`;
   }
 
   async isImported(): Promise<boolean> {
-    const pulumiImportStateID: string = FcService.genStateID(this.region, this.serviceConfig.name);
+    const pulumiImportStateID: string = FcService.genStateID(this.credentials.AccountID, this.region, this.serviceConfig.name);
     const pulumiImportState: any = await core.getState(pulumiImportStateID);
     return pulumiImportState?.isImport;
   }
@@ -77,7 +77,7 @@ export class FcService extends FcBase {
       const resourceName = this.serviceConfig.name;
       const resourceID = `${this.serviceConfig.name}`;
       await this.pulumiImport(access, appName, projectName, curPath, 'service', resourceName, resourceID);
-      await core.setState(FcService.genStateID(this.region, this.serviceConfig.name), { isImport: true });
+      await this.setKVInState(FcService.genStateID(this.credentials.AccountID, this.region, this.serviceConfig.name), 'isImport', true);
     }
   }
 
@@ -94,15 +94,15 @@ export class FcService extends FcBase {
 
     const res: any = await this.destroy(this.serviceConfig.name, access, appName, projectName, curPath, promptMsg, undefined, flags);
     if (_.isEmpty(res?.stderr)) {
-      await this.clear();
+      await this.clean();
       return res;
     } else {
       throw new Error(res?.stderr);
     }
   }
 
-  async clear(): Promise<void> {
-    const clearVm = core.spinner('clearing...');
+  async clean(): Promise<void> {
+    const cleanvm = core.spinner('clearing...');
     try {
       // service
       const serviceStateID = `${this.region}-${this.serviceConfig.name}`;
@@ -112,13 +112,13 @@ export class FcService extends FcBase {
       const functionNames: string[] = await this.getFunctionNames();
       const functionAndTriggerNamesMap: any = await this.getFunctionAndTriggerNamesMap();
       for (const funcName of functionNames) {
-        const functionStateID: string = FcFunction.genStateID(this.region, this.serviceConfig.name, funcName);
+        const functionStateID: string = FcFunction.genStateID(this.credentials.AccountID, this.region, this.serviceConfig.name, funcName);
         await FcBase.zeroImportState(functionStateID);
         this.logger.debug(`zero function: ${funcName} import state done`);
         const triggerNames: string[] = functionAndTriggerNamesMap[funcName];
         if (!_.isEmpty(triggerNames)) {
           for (const triggerName of triggerNames) {
-            const triggerStateID: string = FcTrigger.genStateID(this.region, this.serviceConfig.name, funcName, triggerName);
+            const triggerStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceConfig.name, funcName, triggerName);
             await FcBase.zeroImportState(triggerStateID);
             this.logger.debug(`zero trigger: ${triggerName} import state done`);
           }
@@ -128,9 +128,9 @@ export class FcService extends FcBase {
       // remove stack directory
       await fse.remove(this.pulumiStackDir);
       this.logger.debug(`remove stack directory: ${this.pulumiStackDir} done.`);
-      clearVm.succeed('clear done.');
+      cleanvm.succeed('clear done.');
     } catch (e) {
-      clearVm.fail('clear error.');
+      cleanvm.fail('clear error.');
       throw e;
     }
     this.logger.info(`please make import option to be false in trigger: ${this.serviceConfig.name} and functions/triggers under it.`);
@@ -151,7 +151,7 @@ export class FcService extends FcBase {
     if (this.serviceConfig) {
       Object.assign(conf, { service: this.serviceConfig });
       await writeStrToFile(this.configFile, JSON.stringify(conf, null, '  '), 'w', 0o777);
-      this.logger.debug(`write content: ${JSON.stringify(conf)} to ${this.configFile}`);
+      this.logger.debug(`write content: ${JSON.stringify(conf, null, '  ')} to ${this.configFile}`);
     } else {
       this.logger.error('empty function Config in FcFunction instance');
     }
@@ -183,7 +183,7 @@ export class FcService extends FcBase {
     const fcConfigToBeWritten = fcConfigInGlobal;
     if (this.serviceConfig) {
       if (!equal(serviceInGlobal, this.serviceConfig)) {
-        this.logger.debug(`Service ${this.serviceConfig.name} already exists in golbal:\n${JSON.stringify(serviceInGlobal)}.`);
+        this.logger.debug(`Service ${this.serviceConfig.name} already exists in golbal:\n${JSON.stringify(serviceInGlobal, null, '  ')}.`);
         if (assumeYes || await promptForConfirmContinue('Replace service in pulumi stack with the service in current working directory?')) {
           // replace service
           fcConfigToBeWritten.service = this.serviceConfig;
@@ -193,7 +193,7 @@ export class FcService extends FcBase {
 
     // overwrite file
     await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten, null, '  '), 'w', 0o777);
-    this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
+    this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten, null, '  ')} to ${this.configFile}.`);
   }
 
   async addServiceInConfFile(assumeYes?: boolean): Promise<void> {

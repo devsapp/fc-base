@@ -132,37 +132,41 @@ export class FcTrigger extends FcBase {
   }
 
   async isImported(): Promise<boolean> {
-    const pulumiImportStateID: string = FcTrigger.genStateID(this.region, this.serviceName, this.functionName, this.triggerConfig.name);
+    const pulumiImportStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionName, this.triggerConfig.name);
     const pulumiImportState: any = await core.getState(pulumiImportStateID);
     return pulumiImportState?.isImport;
   }
 
+  genResourceName(): string {
+    return `${this.functionName}-${this.triggerConfig.name}`;
+  }
+
   async importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
     if (this.isPulumiImport && !await this.isImported()) {
-      const resourceName = `${this.triggerConfig.name}-${this.functionName}`;
+      const resourceName = this.genResourceName();
       const resourceID = `${this.serviceName}:${this.functionName}:${this.triggerConfig.name}`;
       const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function::${this.functionName}`;
       await this.pulumiImport(access, appName, projectName, curPath, 'trigger', resourceName, resourceID, parentUrn);
-      const pulumiImportStateID: string = FcTrigger.genStateID(this.region, this.serviceName, this.functionName, this.triggerConfig.name);
-      await core.setState(pulumiImportStateID, { isImport: true });
+      const pulumiImportStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionName, this.triggerConfig.name);
+      await this.setKVInState(pulumiImportStateID, 'isImport', true);
     }
   }
 
   async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
     const promptMsg = `Are you sure to remove trigger: ${this.triggerConfig.name}?`;
-    const resourceName = `${this.triggerConfig.name}-${this.functionName}`;
+    const resourceName = this.genResourceName();
     const targetUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function$alicloud:fc/trigger:Trigger::${resourceName}`;
     const res: any = await this.destroy(this.triggerConfig.name, access, appName, projectName, curPath, promptMsg, targetUrn, flags);
     if (_.isEmpty(res?.stderr)) {
-      await this.clear();
+      await this.clean();
       return res;
     } else {
       throw new Error(res?.stderr);
     }
   }
 
-  static genStateID(region: string, serviceName: string, functionName: string, triggerName: string): string {
-    return `${region}-${serviceName}-${functionName}-${triggerName}`;
+  static genStateID(accountID: string, region: string, serviceName: string, functionName: string, triggerName: string): string {
+    return `${accountID}-${region}-${serviceName}-${functionName}-${triggerName}`;
   }
 
   resolveTriggerIntoPulumiFormat(): any {
@@ -342,17 +346,17 @@ export class FcTrigger extends FcBase {
     await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name', assumeYes, FcTrigger.compareTriggerKeys);
   }
 
-  async clear(): Promise<void> {
-    const clearVm = core.spinner('clearing...');
+  async clean(): Promise<void> {
+    const cleanvm = core.spinner('clearing...');
     try {
       // trigger
-      const triggerStateID: string = FcTrigger.genStateID(this.region, this.serviceName, this.functionName, this.triggerConfig.name);
+      const triggerStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionName, this.triggerConfig.name);
       await FcBase.zeroImportState(triggerStateID);
       this.logger.debug('zero trigger import state done');
 
-      clearVm.succeed('clear done.');
+      cleanvm.succeed('clear done.');
     } catch (e) {
-      clearVm.fail('clear error.');
+      cleanvm.fail('clear error.');
       throw e;
     }
     this.logger.info(`please make import option to be false in trigger: ${this.triggerConfig.name}`);
