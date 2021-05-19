@@ -54,9 +54,15 @@ export default abstract class FcBase {
     this.configFile = path.join(this.pulumiStackDir, filename);
   }
 
-  delReource<T>(resource: T, resources: T[], key: string): T[] {
+  delReource<T>(resource: T, resources: T[], key: string, isResourceHasSameKeyFunc?: Function): T[] {
     if (!resources) { return undefined; }
-    const idx = resources?.findIndex((r) => r[key] === resource[key]);
+    const idx: number = resources?.findIndex((r) => {
+      if (!_.isNil(isResourceHasSameKeyFunc)) {
+        return isResourceHasSameKeyFunc(r, resource);
+      }
+      return r[key] === resource[key];
+    });
+
     if (idx !== undefined && idx >= 0) {
       this.logger.debug(`deleting ${resource[key]} with idx: ${idx}`);
       resources.splice(idx, 1);
@@ -74,12 +80,12 @@ export default abstract class FcBase {
     }
   }
 
-  async delResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string): Promise<boolean> {
+  async delResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, isResourceHasSameKeyFunc?: Function): Promise<boolean> {
     // 更新资源配置文件
     if (await this.configFileExists()) {
       const configInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
       if (!_.isEmpty(configInGlobal[keyInConfFile])) {
-        const resources = this.delReource<T>(resource, configInGlobal[keyInConfFile], keyInResource);
+        const resources = this.delReource<T>(resource, configInGlobal[keyInConfFile], keyInResource, isResourceHasSameKeyFunc);
         if (resources === undefined) {
           // 资源在 pulumi stack 中不存在
           this.logger.warn(`${keyInConfFile}: ${JSON.stringify(resource[keyInResource], null, '  ')} dose not exist in local pulumi stack, please deploy it first.`);

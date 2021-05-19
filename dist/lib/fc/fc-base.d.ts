@@ -12,9 +12,9 @@ export default abstract class FcBase {
     constructor(region: string, credentials: ICredentials, isPulumiImport: boolean, isPulumiImportProtect: boolean);
     genStackID(serviceName: string): string;
     initConfigFileAttr(serviceName: string, filename: string): void;
-    delReource<T>(resource: T, resources: T[], key: string): T[];
+    delReource<T>(resource: T, resources: T[], key: string, isResourceHasSameKeyFunc?: Function): T[];
     pulumiStackDirCheck(): void;
-    delResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string): Promise<boolean>;
+    delResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, isResourceHasSameKeyFunc?: Function): Promise<boolean>;
     createConfFile<T>(resource: T, keyInConfFile: string): Promise<void>;
     static zeroImportState(stateID: string): Promise<void>;
     setKVInState(stateID: string, key: string, value: any): Promise<void>;

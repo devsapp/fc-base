@@ -146,6 +146,7 @@ export class FcFunction extends FcBase {
         await FcBase.zeroImportState(triggerStateID);
         this.logger.debug(`zero trigger: ${triggerName} import state done`);
       }
+      await this.delFunctionInConfFile();
       cleanvm.succeed('clear done.');
     } catch (e) {
       cleanvm.fail('clear error.');
