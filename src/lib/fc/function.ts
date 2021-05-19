@@ -83,7 +83,7 @@ export class FcFunction extends FcBase {
   }
 
   async isImported(): Promise<boolean> {
-    const pulumiImportStateID: string = FcFunction.genStateID(this.region, this.serviceName, this.functionConfig.name);
+    const pulumiImportStateID: string = FcFunction.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionConfig.name);
     const pulumiImportState: any = await core.getState(pulumiImportStateID);
     return pulumiImportState?.isImport;
   }
@@ -94,13 +94,13 @@ export class FcFunction extends FcBase {
       const resourceID = `${this.serviceName}:${this.functionConfig.name}`;
       const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service::${this.serviceName}`;
       await this.pulumiImport(access, appName, projectName, curPath, 'function', resourceName, resourceID, parentUrn);
-      const pulumiImportStateID: string = FcFunction.genStateID(this.region, this.serviceName, this.functionConfig.name);
-      await core.setState(pulumiImportStateID, { isImport: true });
+      const pulumiImportStateID: string = FcFunction.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionConfig.name);
+      await this.setKVInState(pulumiImportStateID, 'isImport', true);
     }
   }
 
-  static genStateID(region: string, serviceName: string, functionName: string): string {
-    return `${region}-${serviceName}-${functionName}`;
+  static genStateID(accountID: string, region: string, serviceName: string, functionName: string): string {
+    return `${accountID}-${region}-${serviceName}-${functionName}`;
   }
 
   async delFunctionInConfFile(): Promise<boolean> {
@@ -125,30 +125,30 @@ export class FcFunction extends FcBase {
     const targetUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function::${this.functionConfig.name}`;
     const res: any = await this.destroy(this.functionConfig.name, access, appName, projectName, curPath, promptMsg, targetUrn, flags);
     if (_.isEmpty(res?.stderr)) {
-      await this.clear();
+      await this.clean();
       return res;
     } else {
       throw new Error(res?.stderr);
     }
   }
 
-  async clear(): Promise<void> {
-    const clearVm = core.spinner('clearing...');
+  async clean(): Promise<void> {
+    const cleanvm = core.spinner('clearing...');
     try {
       // function
-      const functionStateID: string = FcFunction.genStateID(this.region, this.serviceName, this.functionConfig.name);
+      const functionStateID: string = FcFunction.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionConfig.name);
       await FcBase.zeroImportState(functionStateID);
       this.logger.debug('zero function import state done');
       // triggers
       const triggerNames: string[] = await this.getTriggerNames();
       for (const triggerName of triggerNames) {
-        const triggerStateID: string = FcTrigger.genStateID(this.region, this.serviceName, this.functionConfig.name, triggerName);
+        const triggerStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionConfig.name, triggerName);
         await FcBase.zeroImportState(triggerStateID);
         this.logger.debug(`zero trigger: ${triggerName} import state done`);
       }
-      clearVm.succeed('clear done.');
+      cleanvm.succeed('clear done.');
     } catch (e) {
-      clearVm.fail('clear error.');
+      cleanvm.fail('clear error.');
       throw e;
     }
     this.logger.info(`please make import option to be false in trigger: ${this.functionConfig.name} and triggers under it.`);

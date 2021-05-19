@@ -82,7 +82,7 @@ export default abstract class FcBase {
         const resources = this.delReource<T>(resource, configInGlobal[keyInConfFile], keyInResource);
         if (resources === undefined) {
           // 资源在 pulumi stack 中不存在
-          this.logger.warn(`${keyInConfFile}: ${JSON.stringify(resource[keyInResource])} dose not exist in local pulumi stack, please deploy it first.`);
+          this.logger.warn(`${keyInConfFile}: ${JSON.stringify(resource[keyInResource], null, '  ')} dose not exist in local pulumi stack, please deploy it first.`);
           return false;
         }
         // 删除完后没有资源了，则删除文件
@@ -94,7 +94,7 @@ export default abstract class FcBase {
             [keyInConfFile]: resources,
           });
           await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten, null, '  '), 'w', 0o777);
-          this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
+          this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten, null, '  ')} to ${this.configFile}.`);
         }
         return true;
       } else {
@@ -136,13 +136,25 @@ export default abstract class FcBase {
       [keyInConfFile]: resources,
     });
     await writeStrToFile(this.configFile, JSON.stringify(conf, null, '  '), 'w', 0o777);
-    this.logger.debug(`write content: ${JSON.stringify(conf)} to ${this.configFile}`);
+    this.logger.debug(`write content: ${JSON.stringify(conf, null, '  ')} to ${this.configFile}`);
   }
 
   static async zeroImportState(stateID: string): Promise<void> {
     const state: any = await core.getState(stateID);
     if (!_.isEmpty(state)) {
       state.isImport = false;
+      await core.setState(stateID, state);
+    }
+  }
+
+  async setKVInState(stateID: string, key: string, value: any): Promise<void> {
+    const state: any = await core.getState(stateID);
+    if (_.isEmpty(state)) {
+      await core.setState(stateID, { [key]: value });
+    } else {
+      Object.assign(state, {
+        [key]: value,
+      });
       await core.setState(stateID, state);
     }
   }
@@ -164,10 +176,10 @@ export default abstract class FcBase {
       return r[keyInResource] === resource[keyInResource];
     });
     if (!_.isNil(idxInGlobal) && idxInGlobal >= 0) {
-      this.logger.debug(`find resource: ${JSON.stringify(resource)} in pulumi stack`);
+      this.logger.debug(`find resource: ${JSON.stringify(resource, null, '  ')} in pulumi stack`);
 
       if (!equal(JSON.parse(JSON.stringify(resource)), resourcesInGlobal[idxInGlobal])) {
-        this.logger.debug(`${keyInConfFile}: ${resource[keyInResource]} already exists in golbal:\n${JSON.stringify(resourcesInGlobal[idxInGlobal])}`);
+        this.logger.debug(`${keyInConfFile}: ${resource[keyInResource]} already exists in golbal:\n${JSON.stringify(resourcesInGlobal[idxInGlobal], null, '  ')}`);
         if (assumeYes || await promptForConfirmContinue(`Replace ${keyInConfFile} in pulumi stack with the ${keyInConfFile} in current working directory?`)) {
           // replace function
           resourcesInGlobal[idxInGlobal] = resource;
@@ -178,7 +190,7 @@ export default abstract class FcBase {
         isResourcesInGlobalChanged = false;
       }
     } else {
-      this.logger.debug(`add resource: ${JSON.stringify(resource)} to pulumi stack`);
+      this.logger.debug(`add resource: ${JSON.stringify(resource, null, '  ')} to pulumi stack`);
       resourcesInGlobal.push(resource);
     }
     const fcConfigToBeWritten = Object.assign({}, {
@@ -187,7 +199,7 @@ export default abstract class FcBase {
 
     // overwrite file
     if (isResourcesInGlobalChanged) {
-      this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten)} to ${this.configFile}.`);
+      this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten, null, '  ')} to ${this.configFile}.`);
       await writeStrToFile(this.configFile, JSON.stringify(fcConfigToBeWritten, null, '  '), 'w', 0o777);
     } else {
       this.logger.debug(`resource ${keyInConfFile} dose not change.`);
@@ -220,8 +232,7 @@ export default abstract class FcBase {
     const { assumeYes, isDebug, isSilent } = flags;
     let pulumiRes: any;
     if (assumeYes || await promptForConfirmContinue(promptMsg)) {
-      // const pulumiComponentIns: any = await core.load('devsapp/pulumi-alibaba');
-      const pulumiComponentIns: any = await core.load('/Users/zqf/Documents/git_proj/devsapp/component/pulumi-alibaba/');
+      const pulumiComponentIns: any = await core.load('devsapp/pulumi-alibaba');
 
       const pulumiComponentProp: any = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
       let pulumiComponentArgs: string = (isSilent ? '-s' : '') + (isDebug ? '--debug' : '');

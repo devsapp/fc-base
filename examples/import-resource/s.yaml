@@ -22,3 +22,11 @@ services:
         timeout: 60
         import: true
         protect: false
+      triggers:
+        - name: timerTrigger
+          import: true
+          protect: false
+          type: timer
+          config:
+            cronExpression: '@every 1m'
+            enable: true

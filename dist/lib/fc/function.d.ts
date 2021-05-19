@@ -41,9 +41,9 @@ export declare class FcFunction extends FcBase {
     init(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
     isImported(): Promise<boolean>;
     importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
-    static genStateID(region: string, serviceName: string, functionName: string): string;
+    static genStateID(accountID: string, region: string, serviceName: string, functionName: string): string;
     delFunctionInConfFile(): Promise<boolean>;
     addFunctionInConfFile(assumeYes?: boolean): Promise<void>;
     remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
-    clear(): Promise<void>;
+    clean(): Promise<void>;
 }

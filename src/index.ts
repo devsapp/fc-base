@@ -52,19 +52,19 @@ export default class FcBaseComponent {
     let fcFunction: FcFunction;
     const fcTriggers: FcTrigger[] = [];
 
-    this.logger.debug(`instantiate serviceConfig with : ${JSON.stringify(serviceConfig)}`);
+    this.logger.debug(`instantiate serviceConfig with : ${JSON.stringify(serviceConfig, null, '  ')}`);
     const fcService = new FcService(serviceConfig, credentials, region);
     fcService.validateConfig();
     await fcService.init(this.access, this.appName, this.projectName, this.curPath);
     if (!_.isEmpty(functionConfig)) {
-      this.logger.debug(`functionConfig not empty: ${JSON.stringify(functionConfig)}, instantiate it.`);
+      this.logger.debug(`functionConfig not empty: ${JSON.stringify(functionConfig, null, '  ')}, instantiate it.`);
       fcFunction = new FcFunction(functionConfig, credentials, region, serviceConfig?.name);
       fcFunction.validateConfig();
       await fcFunction.init(this.access, this.appName, this.projectName, this.curPath);
     }
 
     if (!_.isEmpty(triggersConfig)) {
-      this.logger.debug(`triggersConfig not empty: ${JSON.stringify(triggersConfig)}, instantiate them.`);
+      this.logger.debug(`triggersConfig not empty: ${JSON.stringify(triggersConfig, null, '  ')}, instantiate them.`);
       for (const triggerConf of triggersConfig) {
         const fcTrigger: FcTrigger = new FcTrigger(triggerConf, credentials, region, serviceConfig?.name, functionConfig?.name);
         fcTrigger.validateConfig();

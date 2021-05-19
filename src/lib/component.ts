@@ -23,6 +23,6 @@ export function genComponentInputs(component: string, access: any, appName: stri
   // @ts-ignore
   delete inputs.credentials;
 
-  Logger.debug('FC-BASE', `inputs of ${component} component generated: ${JSON.stringify(inputs)}`);
+  Logger.debug('FC-BASE', `inputs of ${component} component generated: ${JSON.stringify(inputs, null, '  ')}`);
   return inputs;
 }
