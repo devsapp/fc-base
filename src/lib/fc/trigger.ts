@@ -338,12 +338,12 @@ export class FcTrigger extends FcBase {
   }
 
   async delTriggerInConfFile(): Promise<boolean> {
-    return await this.delResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name');
+    return await this.delResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, FcTrigger.keyInConfigFile, FcTrigger.keyInResource, FcTrigger.compareTriggerKeys);
   }
 
 
   async addTriggerInConfFile(assumeYes?: boolean) {
-    await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, 'trigger', 'name', assumeYes, FcTrigger.compareTriggerKeys);
+    await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, FcTrigger.keyInConfigFile, FcTrigger.keyInResource, assumeYes, FcTrigger.compareTriggerKeys);
   }
 
   async clean(): Promise<void> {
@@ -353,7 +353,7 @@ export class FcTrigger extends FcBase {
       const triggerStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionName, this.triggerConfig.name);
       await FcBase.zeroImportState(triggerStateID);
       this.logger.debug('zero trigger import state done');
-
+      await this.delTriggerInConfFile();
       cleanvm.succeed('clear done.');
     } catch (e) {
       cleanvm.fail('clear error.');
