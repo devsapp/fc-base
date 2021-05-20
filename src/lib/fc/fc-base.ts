@@ -360,7 +360,10 @@ export default abstract class FcBase {
       if (e.message.includes('does not exist')) {
         throw new Error(`Resouce ${resourceType}: ${resourceID} dose not exist online, please create it without 'import' and 'protect' option!\n`);
       }
-      throw e;
+      if (!e.message.includes('stderr: error: no name for resource')) {
+        throw e;
+      }
+      this.logger.debug('can not import alicloud:fc/trigger repeatedly.');
     }
     this.logger.debug(`${type} ${resourceID} is imported.`);
   }

@@ -7,26 +7,49 @@ services:
     # component: fc-base  # 组件名称
     component: ${path(../..)}
     props: #  组件的属性值
-      region: cn-shanghai
+      region: cn-hangzhou
       service:
-        name: qianfeng-demo
+        name: qianfeng-egg-app
+        internetAccess: true
+        role: >-
+          acs:ram::1986114430573743:role/framework-1986114430573743-cn-hangzhou-qianfeng-egg-app
+        vpcConfig:
+          securityGroupId: sg-bp18z8zmujqfsvlpo2jk
+          vswitchIds:
+            - vsw-bp1tvwq4jiununf67p5j3
+        nasConfig:
+          userId: 10003
+          groupId: 10003
+          mountPoints:
+            - serverAddr: 02bd1494bb-eeu51.cn-hangzhou.nas.aliyuncs.com:/qianfeng-egg-app
+              mountDir: /mnt/auto
         import: true
         protect: false
       function:
-        name: test-oss
-        service: qianfeng-demo
-        filename: './code.zip'
-        handler: 'index.handler'
-        memorySize: 128
-        runtime: nodejs12
-        timeout: 60
+        name: qianfeng-egg-app
         import: true
         protect: false
+        runtime: custom-container
+        handler: index.handler
+        timeout: 60
+        instanceType: e1
+        memorySize: 1024
+        initializationTimeout: 3
+        instanceConcurrency: 1
+        customContainerConfig:
+          image: >-
+            registry.cn-hangzhou.aliyuncs.com/fc-demo/fc-nodejs-application-runtime-image:v2
+          command: '["npx"]'
+          args: '["--no-install", "egg-scripts", "start", "--workers=1"]'
+        caPort: 9000
       triggers:
-        - name: timerTrigger
+        - name: qianfeng-egg-app
+          type: http
           import: true
           protect: false
-          type: timer
           config:
-            cronExpression: '@every 1m'
-            enable: true
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - PUT
