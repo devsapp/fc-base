@@ -29,10 +29,14 @@ export default class FcBaseComponent {
       uid = credentials.AccountID;
     }
 
-    core.reportComponent(componentName, {
-      command,
-      uid,
-    });
+    try {
+      core.reportComponent(componentName, {
+        command,
+        uid,
+      });
+    } catch (e) {
+      this.logger.warn(`Component ${componentName} report error: ${e.message}`);
+    }
   }
   // 解析入参
   async handlerInputs(inputs: IInputs) {
