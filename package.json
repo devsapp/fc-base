@@ -1,9 +1,9 @@
 {
   "name": "fc-base",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "main": "./dist/index.js",
   "dependencies": {
-    "@types/fs-extra": "^9.0.0",
+    "fs-extra": "^10.0.0",
     "@serverless-devs/core": "^0.0.x",
     "deep-equal": "^2.0.0",
     "@types/lodash": "^4.14.168",
