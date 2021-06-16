@@ -4,6 +4,7 @@ import { ICredentials } from '../profile';
 import * as path from 'path';
 import { FcTrigger } from './trigger';
 import * as core from '@serverless-devs/core';
+import StdoutFormatter from '../../common/stdout-formatter';
 
 export interface FunctionConfig {
   name: string;
@@ -74,7 +75,8 @@ export class FcFunction extends FcBase {
     this.pulumiStackDirCheck();
     const triggerConfigFilePath = path.join(this.pulumiStackDir, FcTrigger.configFileName);
     const removedTriggersNames = await FcBase.delReourceUnderParent(this.functionConfig.name, 'function', FcTrigger.keyInConfigFile, FcTrigger.keyInResource, triggerConfigFilePath);
-    this.logger.info(`remove triggers ${removedTriggersNames} under function: ${this.functionConfig.name}.`);
+    const removeMsg = StdoutFormatter.stdoutFormatter?.remove('trigger', `remove triggers ${removedTriggersNames} under function ${this.functionConfig.name}`);
+    this.logger.info(removeMsg || `remove triggers ${removedTriggersNames} under function: ${this.functionConfig.name}.`);
   }
 
   async init(access: string, appName: string, projectName: string, curPath: any): Promise<void> {

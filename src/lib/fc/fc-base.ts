@@ -12,6 +12,7 @@ import { genComponentInputs } from '../component';
 import { genPulumiComponentProp, genPulumiImportFlags } from '../pulumi';
 import promiseRetry from '../retry';
 import { handlerKnownErrors } from '../error';
+import StdoutFormatter from '../../common/stdout-formatter';
 
 const CODE_LIB_PATH = path.resolve(__dirname, '..');
 const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
@@ -253,7 +254,8 @@ export default abstract class FcBase {
         } catch (e) {
           this.logger.debug(`error when remove ${name}, error is: \n${e}`);
           handlerKnownErrors(e);
-          this.logger.log(`\tretry ${times} times`, 'red');
+          const retryMsg = StdoutFormatter.stdoutFormatter?.retry('pulumi destroy', '', '', times);
+          this.logger.log(retryMsg || `\tretry ${times} times`, 'red');
           retry(e);
         }
       });

@@ -11,6 +11,7 @@ import { ICredentials } from './lib/profile';
 import { IProperties, IInputs } from './interface';
 import promiseRetry from './lib/retry';
 import { handlerKnownErrors } from './lib/error';
+import StdoutFormatter from './common/stdout-formatter';
 
 const SUPPORTED_REMOVE_ARGS = ['service', 'function', 'trigger'];
 
@@ -35,7 +36,7 @@ export default class FcBaseComponent {
         uid,
       });
     } catch (e) {
-      this.logger.warn(`Component ${componentName} report error: ${e.message}`);
+      this.logger.warn(`Reminder report: Component ${componentName} report error(${e.message})`);
     }
   }
   // 解析入参
@@ -47,6 +48,8 @@ export default class FcBaseComponent {
     this.projectName = inputs?.project?.projectName;
     this.appName = inputs?.appName;
     this.curPath = inputs?.path;
+
+    await StdoutFormatter.initStdout();
 
     const serviceConfig: ServiceConfig = properties?.service;
     const functionConfig: FunctionConfig = properties?.function;
@@ -134,7 +137,8 @@ export default class FcBaseComponent {
       } catch (e) {
         this.logger.debug(`error when deploy, error is: \n${e}`);
         handlerKnownErrors(e);
-        this.logger.log(`\tretry ${times} times`, 'red');
+        const retryMsg = StdoutFormatter.stdoutFormatter?.retry('pulumi up', '', '', times) || `\tretry ${times} times`;
+        this.logger.log(retryMsg, 'red');
         retry(e);
       }
     });
@@ -178,7 +182,8 @@ export default class FcBaseComponent {
 
     const flags: any = { isDebug, isSilent, assumeYes };
     if (nonOptionsArg === 'service') {
-      this.logger.info(`waiting for service: ${fcService.serviceConfig.name} to be removed`);
+      const removeMsg = StdoutFormatter.stdoutFormatter?.remove('service', fcService.serviceConfig.name) || `waiting for service: ${fcService.serviceConfig.name} to be removed`;
+      this.logger.info(removeMsg);
       const removeRes: any = await fcService.remove(this.access, this.appName, this.projectName, this.curPath, flags);
       if (removeRes?.stderr) {
         this.logger.error(`remove service error:\n ${removeRes?.stderr}`);
@@ -193,12 +198,14 @@ export default class FcBaseComponent {
       const removeRes: any[] = [];
       for (let i = 0; i < fcTriggers.length; i++) {
         if (await fcTriggers[i].isImported()) {
-          this.logger.info(`waiting for trigger ${fcTriggers[i].triggerConfig.name} to be removed`);
+          const removeMsg = StdoutFormatter.stdoutFormatter?.remove('trigger', fcTriggers[i].triggerConfig.name);
+          this.logger.info(removeMsg || `waiting for trigger ${fcTriggers[i].triggerConfig.name} to be removed`);
           const removeTriggerRes: any = await fcTriggers[i].remove(this.access, this.appName, this.projectName, this.curPath, flags);
           removeRes.push(removeTriggerRes?.stdout);
         }
       }
-      this.logger.info(`waiting for function: ${fcFunction.functionConfig.name} to be removed`);
+      const removeMsg = StdoutFormatter.stdoutFormatter?.remove('trigger', fcFunction.functionConfig.name);
+      this.logger.info(removeMsg || `waiting for function: ${fcFunction.functionConfig.name} to be removed`);
       const removeFunctionRes: any = await fcFunction.remove(this.access, this.appName, this.projectName, this.curPath, flags);
 
       removeRes.push(removeFunctionRes);
@@ -214,7 +221,8 @@ export default class FcBaseComponent {
 
       for (let i = 0; i < fcTriggers.length; i++) {
         if (_.isNil(targetTriggerName) || targetTriggerName === fcTriggers[i].triggerConfig.name) {
-          this.logger.info(`waiting for trigger ${fcTriggers[i].triggerConfig.name} to be removed`);
+          const removeMsg = StdoutFormatter.stdoutFormatter?.remove('trigger', fcTriggers[i].triggerConfig.name);
+          this.logger.info(removeMsg || `waiting for trigger ${fcTriggers[i].triggerConfig.name} to be removed`);
           const removeTriggerRes: any = await fcTriggers[i].remove(this.access, this.appName, this.projectName, this.curPath, flags);
           removeRes.push(removeTriggerRes?.stdout);
         }
