@@ -40,6 +40,7 @@ export interface CustomContainerConfig {
 export class FcFunction extends FcBase {
   functionConfig: FunctionConfig;
   readonly serviceName: string;
+  pulumiUrn: string;
 
   static keyInConfigFile = 'function';
   static keyInResource = 'name';
@@ -82,6 +83,7 @@ export class FcFunction extends FcBase {
   async init(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
     this.initConfigFileAttr(this.serviceName, FcFunction.configFileName);
     await this.importResource(access, appName, projectName, curPath);
+    this.pulumiUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/function:Function::${this.functionConfig.name}`;
   }
 
   async isImported(): Promise<boolean> {
@@ -94,8 +96,8 @@ export class FcFunction extends FcBase {
     if (this.isPulumiImport && !await this.isImported()) {
       const resourceName: string = this.functionConfig.name;
       const resourceID = `${this.serviceName}:${this.functionConfig.name}`;
-      const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service::${this.serviceName}`;
-      await this.pulumiImport(access, appName, projectName, curPath, 'function', resourceName, resourceID, parentUrn);
+      // const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service::${this.serviceName}`;
+      await this.pulumiImport(access, appName, projectName, curPath, 'function', resourceName, resourceID);
       const pulumiImportStateID: string = FcFunction.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionConfig.name);
       await this.setKVInState(pulumiImportStateID, 'isImport', true);
     }
@@ -113,6 +115,15 @@ export class FcFunction extends FcBase {
     await this.addResourceInConfFile<FunctionConfig>(this.functionConfig, FcFunction.keyInConfigFile, FcFunction.keyInResource, assumeYes);
   }
 
+  async deploy(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
+    // Only deploy function
+    const res: any = await this.up(this.functionConfig.name, access, appName, projectName, curPath, this.pulumiUrn, flags);
+    if (!_.isEmpty(res?.stderr)) {
+      throw new Error(res?.stderr);
+    }
+    return res;
+  }
+
   async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
     const triggerssArr = await this.getTriggerNames();
     let promptMsg: string;
@@ -124,8 +135,7 @@ export class FcFunction extends FcBase {
       promptMsg = `Are you sure to remove service: ${this.functionConfig.name} and functions: ${triggerssArr}?`;
     }
 
-    const targetUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function::${this.functionConfig.name}`;
-    const res: any = await this.destroy(this.functionConfig.name, access, appName, projectName, curPath, promptMsg, targetUrn, flags);
+    const res: any = await this.destroy(this.functionConfig.name, access, appName, projectName, curPath, promptMsg, this.pulumiUrn, flags);
     if (_.isEmpty(res?.stderr)) {
       await this.clean();
       return res;

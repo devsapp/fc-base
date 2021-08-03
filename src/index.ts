@@ -44,7 +44,6 @@ export default class FcBaseComponent {
     const properties: IProperties = inputs?.props;
     this.access = inputs?.project?.access;
     const credentials: ICredentials = await core.getCredential(this.access);
-    const args = inputs?.args;
     this.projectName = inputs?.project?.projectName;
     this.appName = inputs?.appName;
     this.curPath = inputs?.path;
@@ -84,7 +83,6 @@ export default class FcBaseComponent {
       fcService,
       fcFunction,
       fcTriggers,
-      args,
     };
   }
 
@@ -93,14 +91,27 @@ export default class FcBaseComponent {
       fcService,
       fcFunction,
       fcTriggers,
-      args,
     } = await this.handlerInputs(inputs);
     await this.report('fc-base', 'deploy', fcService.credentials.AccountID);
-    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assume-yes', 's', 'silent'] });
+    const parsedArgs: {[key: string]: any} = core.commandParse(inputs, { boolean: ['y', 'assume-yes', 's', 'silent'] });
     const argsData: any = parsedArgs?.data || {};
     const assumeYes = argsData.y || argsData['assume-yes'];
     const isSilent = argsData.s || argsData.silent;
     const isDebug = argsData.debug || process.env?.temp_params?.includes('--debug');
+    const targetTriggerName: string = argsData['trigger-name'];
+    const nonOptionsArgs = argsData._ || [];
+
+    if (nonOptionsArgs.length > 1) {
+      this.logger.error(` error: unexpected argument: ${nonOptionsArgs[1]}`);
+      // help info
+      return;
+    }
+    const nonOptionsArg = nonOptionsArgs[0];
+    if (nonOptionsArg && !SUPPORTED_REMOVE_ARGS.includes(nonOptionsArg)) {
+      this.logger.error(` deploy ${nonOptionsArg} is not supported now.`);
+      // help info
+      return;
+    }
 
     /**
      * 初始化中间文件:
@@ -109,18 +120,43 @@ export default class FcBaseComponent {
      *   3. 将已有的 package.json 以及 index.ts 复制至缓存文件夹中
      *   4. 安装依赖
      */
-
-    await fcService.addServiceInConfFile(assumeYes);
-
-    if (!_.isNil(fcFunction)) {
-      await fcFunction.addFunctionInConfFile(assumeYes);
-    }
-    if (!_.isEmpty(fcTriggers)) {
-      for (let i = 0; i < fcTriggers.length; i++) {
-        await fcTriggers[i].addTriggerInConfFile(assumeYes);
+    const flags: any = { isDebug, isSilent, assumeYes };
+    if (!nonOptionsArg || nonOptionsArg === 'service') {
+      await fcService.addServiceInConfFile(assumeYes);
+      if (nonOptionsArg) {
+        const serviceRes: any = await fcService.deploy(this.access, this.appName, this.projectName, this.curPath, flags);
+        return serviceRes?.stdout;
       }
     }
-    // 部署 fc 资源
+
+    if (!nonOptionsArg || nonOptionsArg === 'function') {
+      if (!_.isNil(fcFunction)) {
+        await fcFunction.addFunctionInConfFile(assumeYes);
+      }
+      if (nonOptionsArg) {
+        const functionRes: any = await fcFunction.deploy(this.access, this.appName, this.projectName, this.curPath, flags);
+        return functionRes?.stdout;
+      }
+    }
+    if (!nonOptionsArg || nonOptionsArg === 'trigger') {
+      const targetTriggerNames: string[] = [];
+      const targetTriggerUrns: string[] = [];
+      if (!_.isEmpty(fcTriggers)) {
+        for (let i = 0; i < fcTriggers.length; i++) {
+          if (!targetTriggerName || targetTriggerName === fcTriggers[i].triggerConfig.name) {
+            await fcTriggers[i].addTriggerInConfFile(assumeYes);
+            targetTriggerNames.push(fcTriggers[i].triggerConfig.name);
+            targetTriggerUrns.push(fcTriggers[i].pulumiUrn);
+          }
+        }
+      }
+      if (nonOptionsArg) {
+        const triggerRes: any = await fcTriggers[0].up(targetTriggerNames, this.access, this.appName, this.projectName, this.curPath, targetTriggerUrns, flags);
+        return triggerRes?.stdout;
+      }
+    }
+
+    // deploy all
     const pulumiComponentIns = await core.load('devsapp/pulumi-alibaba');
     const pulumiComponentProp = genPulumiComponentProp(fcService.stackID, fcService.region, fcService.pulumiStackDir);
     const pulumiComponentArgs = (isSilent ? '-s' : '') + (isDebug ? '--debug' : '');
@@ -149,10 +185,9 @@ export default class FcBaseComponent {
       fcService,
       fcFunction,
       fcTriggers,
-      args,
     } = await this.handlerInputs(inputs);
     await this.report('fc-base', 'remove', fcService.credentials.AccountID);
-    const parsedArgs: {[key: string]: any} = core.commandParse({ args }, { boolean: ['y', 'assume-yes', 's', 'silent'] });
+    const parsedArgs: {[key: string]: any} = core.commandParse(inputs, { boolean: ['y', 'assume-yes', 's', 'silent'] });
     const argsData: any = parsedArgs?.data || {};
     const nonOptionsArgs = argsData._;
     const assumeYes = argsData.y || argsData['assume-yes'];
@@ -221,8 +256,6 @@ export default class FcBaseComponent {
 
       for (let i = 0; i < fcTriggers.length; i++) {
         if (_.isNil(targetTriggerName) || targetTriggerName === fcTriggers[i].triggerConfig.name) {
-          const removeMsg = StdoutFormatter.stdoutFormatter?.remove('trigger', fcTriggers[i].triggerConfig.name);
-          this.logger.info(removeMsg || `waiting for trigger ${fcTriggers[i].triggerConfig.name} to be removed`);
           const removeTriggerRes: any = await fcTriggers[i].remove(this.access, this.appName, this.projectName, this.curPath, flags);
           removeRes.push(removeTriggerRes?.stdout);
         }

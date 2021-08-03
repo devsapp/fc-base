@@ -30,7 +30,7 @@
   },
   "scripts": {
     "dev": "npx tsc -w -p tsconfig.json",
-    "prebuild": "rimraf dist",
+    "prebuild": "rm -rf node_modules && rm -rf package-lock.json && npm i && rimraf dist",
     "build": "npx tsc -p tsconfig.json",
     "postbuild": "./scripts/post-build.sh",
     "build:component": "npx webpack --mode=production",

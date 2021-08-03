@@ -33,6 +33,7 @@ export function genStackId(accountId: string, region: string, serviceName: strin
 
 export class FcService extends FcBase {
   readonly serviceConfig: ServiceConfig;
+  pulumiUrn: string;
 
   static keyInConfigFile = 'service';
   static keyInResource = 'name';
@@ -53,6 +54,7 @@ export class FcService extends FcBase {
   async init(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
     this.initConfigFileAttr(this.serviceConfig.name, FcService.configFileName);
     await this.importResource(access, appName, projectName, curPath);
+    this.pulumiUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service::${this.serviceConfig?.name}`;
   }
 
   static genStateID(accountID: string, region: string, serviceName: string): string {
@@ -81,6 +83,15 @@ export class FcService extends FcBase {
     }
   }
 
+  async deploy(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
+    // Only deploy service
+    const res: any = await this.up(this.serviceConfig.name, access, appName, projectName, curPath, this.pulumiUrn, flags);
+    if (!_.isEmpty(res?.stderr)) {
+      throw new Error(res?.stderr);
+    }
+    return res;
+  }
+
   async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
     const fcFunctionsArr = await this.getFunctionNames();
     let promptMsg: string;
@@ -102,7 +113,7 @@ export class FcService extends FcBase {
   }
 
   async clean(): Promise<void> {
-    const cleanvm = core.spinner('clearing...');
+    const cleanvm = core.spinner('cleaning...');
     try {
       // service
       const serviceStateID = `${this.region}-${this.serviceConfig.name}`;
@@ -205,4 +216,5 @@ export class FcService extends FcBase {
       await this.createServiceConfFile();
     }
   }
+
 }
