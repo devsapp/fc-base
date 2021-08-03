@@ -13,6 +13,7 @@ import { genPulumiComponentProp, genPulumiImportFlags } from '../pulumi';
 import promiseRetry from '../retry';
 import { handlerKnownErrors } from '../error';
 import StdoutFormatter from '../../common/stdout-formatter';
+import { genTargetArgs } from '../utils/pulumi';
 
 const CODE_LIB_PATH = path.resolve(__dirname, '..');
 const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
@@ -235,17 +236,34 @@ export default abstract class FcBase {
     return resourcesName;
   }
 
-  async destroy(name: string, access: string, appName: string, projectName: string, curPath: any, promptMsg: string, targetUrn?: string, flags?: any): Promise<any> {
+  async up(name: string | string[], access: string, appName: string, projectName: string, curPath: any, targetUrn?: string | string[], flags?: any): Promise<any> {
+    const { isDebug, isSilent } = flags;
+    const pulumiComponentIns: any = await core.load('devsapp/pulumi-alibaba');
+    const pulumiComponentProp: any = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
+    const pulumiComponentArgs: string = genTargetArgs(targetUrn, isSilent, isDebug);
+    const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, pulumiComponentArgs);
+    const pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
+      try {
+        const upRes: any = await pulumiComponentIns.up(pulumiInputs);
+        return upRes;
+      } catch (e) {
+        this.logger.debug(`error when deploy ${name}, error is: \n${e}`);
+        handlerKnownErrors(e);
+        this.logger.log(`\tretry ${times} times`, 'red');
+        retry(e);
+      }
+    });
+    return pulumiRes;
+  }
+
+  async destroy(name: string | string[], access: string, appName: string, projectName: string, curPath: any, promptMsg?: string, targetUrn?: string | string[], flags?: any): Promise<any> {
     const { assumeYes, isDebug, isSilent } = flags;
     let pulumiRes: any;
     if (assumeYes || await promptForConfirmContinue(promptMsg)) {
       const pulumiComponentIns: any = await core.load('devsapp/pulumi-alibaba');
 
       const pulumiComponentProp: any = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
-      let pulumiComponentArgs: string = (isSilent ? '-s' : '') + (isDebug ? '--debug' : '');
-      if (!_.isNil(targetUrn)) {
-        pulumiComponentArgs += ` --target ${targetUrn} --target-dependents`;
-      }
+      const pulumiComponentArgs: string = genTargetArgs(targetUrn, isSilent, isDebug);
       const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, pulumiComponentArgs);
       pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
         try {

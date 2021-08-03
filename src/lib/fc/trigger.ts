@@ -42,6 +42,7 @@ export class FcTrigger extends FcBase {
   resolvedTriggerConfig: {[key: string]: any};
   readonly serviceName: string;
   readonly functionName?: string;
+  pulumiUrn: string;
 
   static keyInConfigFile = 'trigger';
   static keyInResource = 'name';
@@ -129,6 +130,7 @@ export class FcTrigger extends FcBase {
   async init(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
     this.initConfigFileAttr(this.serviceName, FcTrigger.configFileName);
     await this.importResource(access, appName, projectName, curPath);
+    this.pulumiUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/trigger:Trigger::${this.genResourceName()}`;
   }
 
   async isImported(): Promise<boolean> {
@@ -145,18 +147,26 @@ export class FcTrigger extends FcBase {
     if (this.isPulumiImport && !await this.isImported()) {
       const resourceName = this.genResourceName();
       const resourceID = `${this.serviceName}:${this.functionName}:${this.triggerConfig.name}`;
-      const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function::${this.functionName}`;
-      await this.pulumiImport(access, appName, projectName, curPath, 'trigger', resourceName, resourceID, parentUrn);
+      // const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function::${this.functionName}`;
+      await this.pulumiImport(access, appName, projectName, curPath, 'trigger', resourceName, resourceID);
       const pulumiImportStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionName, this.triggerConfig.name);
       await this.setKVInState(pulumiImportStateID, 'isImport', true);
     }
   }
 
+  async deploy(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
+    // Only deploy trigger
+    const res: any = await this.up(this.triggerConfig.name, access, appName, projectName, curPath, this.pulumiUrn, flags);
+    if (!_.isEmpty(res?.stderr)) {
+      throw new Error(res?.stderr);
+    }
+    return res;
+  }
+
   async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
     const promptMsg = `Are you sure to remove trigger: ${this.triggerConfig.name}?`;
-    const resourceName = this.genResourceName();
-    const targetUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function$alicloud:fc/trigger:Trigger::${resourceName}`;
-    const res: any = await this.destroy(this.triggerConfig.name, access, appName, projectName, curPath, promptMsg, targetUrn, flags);
+
+    const res: any = await this.destroy(this.triggerConfig.name, access, appName, projectName, curPath, promptMsg, this.pulumiUrn, flags);
     if (_.isEmpty(res?.stderr)) {
       await this.clean();
       return res;
