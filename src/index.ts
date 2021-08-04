@@ -14,6 +14,7 @@ import { handlerKnownErrors } from './lib/error';
 import StdoutFormatter from './common/stdout-formatter';
 
 const SUPPORTED_REMOVE_ARGS = ['service', 'function', 'trigger'];
+const SUPPORTED_DEPLOY_ARGS = ['all', 'service', 'function', 'trigger'];
 
 export default class FcBaseComponent {
   @core.HLogger('FC-BASE') logger: core.ILogger;
@@ -110,7 +111,7 @@ export default class FcBaseComponent {
       return;
     }
     const nonOptionsArg = nonOptionsArgs[0];
-    if (nonOptionsArg && !SUPPORTED_REMOVE_ARGS.includes(nonOptionsArg)) {
+    if (nonOptionsArg && !SUPPORTED_DEPLOY_ARGS.includes(nonOptionsArg)) {
       this.logger.error(` deploy ${nonOptionsArg} is not supported now.`);
       // help info
       return;
@@ -210,7 +211,7 @@ export default class FcBaseComponent {
       return;
     }
     const nonOptionsArg = nonOptionsArgs[0];
-    if (!SUPPORTED_REMOVE_ARGS.includes(nonOptionsArg)) {
+    if (nonOptionsArg && !SUPPORTED_REMOVE_ARGS.includes(nonOptionsArg)) {
       this.logger.error(` remove ${nonOptionsArg} is not supported now.`);
       // help info
       return;
