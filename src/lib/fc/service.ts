@@ -5,7 +5,6 @@ import FcBase from './fc-base';
 import { writeStrToFile } from '../file';
 import * as fse from 'fs-extra';
 import equal from 'deep-equal';
-import { promptForConfirmContinue } from '../init/prompt';
 import * as _ from 'lodash';
 import { ICredentials } from '../profile';
 import * as path from 'path';
@@ -93,17 +92,7 @@ export class FcService extends FcBase {
   }
 
   async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
-    const fcFunctionsArr = await this.getFunctionNames();
-    let promptMsg: string;
-    if (fcFunctionsArr.length === 0) {
-      promptMsg = `Are you sure to remove service: ${this.serviceConfig.name}?`;
-    } else if (fcFunctionsArr.length === 1) {
-      promptMsg = `Are you sure to remove service: ${this.serviceConfig.name} and function: ${fcFunctionsArr}?`;
-    } else {
-      promptMsg = `Are you sure to remove service: ${this.serviceConfig.name} and functions: ${fcFunctionsArr}?`;
-    }
-
-    const res: any = await this.destroy(this.serviceConfig.name, access, appName, projectName, curPath, promptMsg, undefined, flags);
+    const res: any = await this.destroy(this.serviceConfig.name, access, appName, projectName, curPath, undefined, flags);
     if (_.isEmpty(res?.stderr)) {
       await this.clean();
       return res;
@@ -185,7 +174,7 @@ export class FcService extends FcBase {
   }
 
 
-  async updateServiceInConfFile(assumeYes?: boolean): Promise<void> {
+  async updateServiceInConfFile(): Promise<void> {
     this.logger.debug(`${this.configFile} exists, updating...`);
 
     const fcConfigInGlobal = JSON.parse(await fse.readFile(this.configFile, 'utf-8'));
@@ -195,10 +184,7 @@ export class FcService extends FcBase {
     if (this.serviceConfig) {
       if (!equal(serviceInGlobal, this.serviceConfig)) {
         this.logger.debug(`Service ${this.serviceConfig.name} already exists in golbal:\n${JSON.stringify(serviceInGlobal, null, '  ')}.`);
-        if (assumeYes || await promptForConfirmContinue('Replace service in pulumi stack with the service in current working directory?')) {
-          // replace service
-          fcConfigToBeWritten.service = this.serviceConfig;
-        }
+        fcConfigToBeWritten.service = this.serviceConfig;
       }
     }
 
@@ -207,10 +193,10 @@ export class FcService extends FcBase {
     this.logger.debug(`update content: ${JSON.stringify(fcConfigToBeWritten, null, '  ')} to ${this.configFile}.`);
   }
 
-  async addServiceInConfFile(assumeYes?: boolean): Promise<void> {
+  async addServiceInConfFile(): Promise<void> {
     if (await this.configFileExists()) {
       // update
-      await this.updateServiceInConfFile(assumeYes);
+      await this.updateServiceInConfFile();
     } else {
       // create
       await this.createServiceConfFile();

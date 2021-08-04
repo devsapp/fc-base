@@ -2,7 +2,6 @@ import * as fse from 'fs-extra';
 import { isFile, writeStrToFile } from '../file';
 import * as core from '@serverless-devs/core';
 import equal from 'deep-equal';
-import { promptForConfirmContinue } from '../init/prompt';
 import { ICredentials } from '../profile';
 import * as _ from 'lodash';
 import * as path from 'path';
@@ -167,7 +166,7 @@ export default abstract class FcBase {
     }
   }
 
-  async updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void> {
+  async updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, isResourceHasSameKeyFunc?: Function): Promise<void> {
     if (_.isEmpty(resource)) {
       this.logger.warn(`empty ${keyInConfFile} resource`);
       return;
@@ -188,12 +187,8 @@ export default abstract class FcBase {
 
       if (!equal(JSON.parse(JSON.stringify(resource)), resourcesInGlobal[idxInGlobal])) {
         this.logger.debug(`${keyInConfFile}: ${resource[keyInResource]} already exists in golbal:\n${JSON.stringify(resourcesInGlobal[idxInGlobal], null, '  ')}`);
-        if (assumeYes || await promptForConfirmContinue(`Replace ${keyInConfFile} in pulumi stack with the ${keyInConfFile} in current working directory?`)) {
-          // replace function
-          resourcesInGlobal[idxInGlobal] = resource;
-        } else {
-          isResourcesInGlobalChanged = false;
-        }
+        // replace resource
+        resourcesInGlobal[idxInGlobal] = resource;
       } else {
         isResourcesInGlobalChanged = false;
       }
@@ -228,7 +223,7 @@ export default abstract class FcBase {
       if (_.isNil(parentAttrInChild)) {
         throw new Error(`${parentKeyInChildResource} in ${childKeyInConfFile} is ${parentAttrInChild}`);
       }
-      if ((_.isString(parentAttrInChild) && parentAttrInChild === parentName) ||
+      if (((typeof parentAttrInChild === 'string') && parentAttrInChild === parentName) ||
           (_.isArray(parentAttrInChild) && parentAttrInChild.includes(parentName))) {
         resourcesName.push(f[childKeyInResource]);
       }
@@ -256,30 +251,26 @@ export default abstract class FcBase {
     return pulumiRes;
   }
 
-  async destroy(name: string | string[], access: string, appName: string, projectName: string, curPath: any, promptMsg?: string, targetUrn?: string | string[], flags?: any): Promise<any> {
-    const { assumeYes, isDebug, isSilent } = flags;
-    let pulumiRes: any;
-    if (assumeYes || await promptForConfirmContinue(promptMsg)) {
-      const pulumiComponentIns: any = await core.load('devsapp/pulumi-alibaba');
+  async destroy(name: string | string[], access: string, appName: string, projectName: string, curPath: any, targetUrn?: string | string[], flags?: any): Promise<any> {
+    const { isDebug, isSilent } = flags;
+    const pulumiComponentIns: any = await core.load('devsapp/pulumi-alibaba');
 
-      const pulumiComponentProp: any = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
-      const pulumiComponentArgs: string = genTargetArgs(targetUrn, isSilent, isDebug);
-      const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, pulumiComponentArgs);
-      pulumiRes = await promiseRetry(async (retry: any, times: number): Promise<any> => {
-        try {
-          const destroyRes: any = await pulumiComponentIns.destroy(pulumiInputs);
-          return destroyRes;
-        } catch (e) {
-          this.logger.debug(`error when remove ${name}, error is: \n${e}`);
-          handlerKnownErrors(e);
-          const retryMsg = StdoutFormatter.stdoutFormatter?.retry('pulumi destroy', '', '', times);
-          this.logger.log(retryMsg || `\tretry ${times} times`, 'red');
-          retry(e);
-        }
-      });
-      return pulumiRes;
-    }
-    this.logger.info(`cancel removing ${name}`);
+    const pulumiComponentProp: any = genPulumiComponentProp(this.stackID, this.region, this.pulumiStackDir);
+    const pulumiComponentArgs: string = genTargetArgs(targetUrn, isSilent, isDebug);
+    const pulumiInputs = genComponentInputs('pulumi-alibaba', access, appName, `${projectName}-pulumi-project`, pulumiComponentProp, curPath, pulumiComponentArgs);
+    const pulumiRes: any = await promiseRetry(async (retry: any, times: number): Promise<any> => {
+      try {
+        const destroyRes: any = await pulumiComponentIns.destroy(pulumiInputs);
+        return destroyRes;
+      } catch (e) {
+        this.logger.debug(`error when remove ${name}, error is: \n${e}`);
+        handlerKnownErrors(e);
+        const retryMsg = StdoutFormatter.stdoutFormatter?.retry('pulumi destroy', '', '', times);
+        this.logger.log(retryMsg || `\tretry ${times} times`, 'red');
+        retry(e);
+      }
+    });
+    return pulumiRes;
   }
 
   static async delReourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]> {
@@ -309,10 +300,10 @@ export default abstract class FcBase {
     return reomvedResources;
   }
 
-  async addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void> {
+  async addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, isResourceHasSameKeyFunc?: Function): Promise<void> {
     if (await this.configFileExists()) {
       // update
-      await this.updateReourceInConfFile<T>(resource, keyInConfFile, keyInResource, assumeYes, isResourceHasSameKeyFunc);
+      await this.updateReourceInConfFile<T>(resource, keyInConfFile, keyInResource, isResourceHasSameKeyFunc);
     } else {
       // create
       await this.createConfFile<T>(resource, keyInConfFile);

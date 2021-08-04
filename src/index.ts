@@ -25,7 +25,7 @@ export default class FcBaseComponent {
 
   async report(componentName: string, command: string, accountID?: string, access?: string): Promise<void> {
     let uid: string = accountID;
-    if (_.isEmpty(accountID)) {
+    if (_.isEmpty(accountID) && !_.isEmpty(access)) {
       const credentials: ICredentials = await core.getCredential(access);
       uid = credentials.AccountID;
     }
@@ -95,8 +95,11 @@ export default class FcBaseComponent {
     await this.report('fc-base', 'deploy', fcService.credentials.AccountID);
     const parsedArgs: {[key: string]: any} = core.commandParse(inputs, { boolean: ['y', 'assume-yes', 's', 'silent'] });
     const argsData: any = parsedArgs?.data || {};
-    const assumeYes = argsData.y || argsData['assume-yes'];
     const isSilent = argsData.s || argsData.silent;
+    const assumeYes = argsData.y || argsData['assume-yes'];
+    if (assumeYes) {
+      this.logger.warn('Fc-base will cancel all the interactive inquiry after the version: 0.0.20 and assume-yes option would be useless.');
+    }
     const isDebug = argsData.debug || process.env?.temp_params?.includes('--debug');
     const targetTriggerName: string = argsData['trigger-name'];
     const nonOptionsArgs = argsData._ || [];
@@ -120,9 +123,9 @@ export default class FcBaseComponent {
      *   3. 将已有的 package.json 以及 index.ts 复制至缓存文件夹中
      *   4. 安装依赖
      */
-    const flags: any = { isDebug, isSilent, assumeYes };
+    const flags: any = { isDebug, isSilent };
     if (!nonOptionsArg || nonOptionsArg === 'service') {
-      await fcService.addServiceInConfFile(assumeYes);
+      await fcService.addServiceInConfFile();
       if (nonOptionsArg) {
         const serviceRes: any = await fcService.deploy(this.access, this.appName, this.projectName, this.curPath, flags);
         return serviceRes?.stdout;
@@ -131,7 +134,7 @@ export default class FcBaseComponent {
 
     if (!nonOptionsArg || nonOptionsArg === 'function') {
       if (!_.isNil(fcFunction)) {
-        await fcFunction.addFunctionInConfFile(assumeYes);
+        await fcFunction.addFunctionInConfFile();
       }
       if (nonOptionsArg) {
         const functionRes: any = await fcFunction.deploy(this.access, this.appName, this.projectName, this.curPath, flags);
@@ -144,7 +147,7 @@ export default class FcBaseComponent {
       if (!_.isEmpty(fcTriggers)) {
         for (let i = 0; i < fcTriggers.length; i++) {
           if (!targetTriggerName || targetTriggerName === fcTriggers[i].triggerConfig.name) {
-            await fcTriggers[i].addTriggerInConfFile(assumeYes);
+            await fcTriggers[i].addTriggerInConfFile();
             targetTriggerNames.push(fcTriggers[i].triggerConfig.name);
             targetTriggerUrns.push(fcTriggers[i].pulumiUrn);
           }
@@ -191,6 +194,9 @@ export default class FcBaseComponent {
     const argsData: any = parsedArgs?.data || {};
     const nonOptionsArgs = argsData._;
     const assumeYes = argsData.y || argsData['assume-yes'];
+    if (assumeYes) {
+      this.logger.warn('Fc-base will cancel all the interactive inquiry after the version: 0.0.20 and assume-yes option would be useless.');
+    }
     const isSilent = argsData.s || argsData.silent;
     const isDebug = argsData.debug;
     if (_.isEmpty(nonOptionsArgs)) {
@@ -215,7 +221,7 @@ export default class FcBaseComponent {
       return;
     }
 
-    const flags: any = { isDebug, isSilent, assumeYes };
+    const flags: any = { isDebug, isSilent };
     if (nonOptionsArg === 'service') {
       const removeMsg = StdoutFormatter.stdoutFormatter?.remove('service', fcService.serviceConfig.name) || `waiting for service: ${fcService.serviceConfig.name} to be removed`;
       this.logger.info(removeMsg);
@@ -239,7 +245,7 @@ export default class FcBaseComponent {
           removeRes.push(removeTriggerRes?.stdout);
         }
       }
-      const removeMsg = StdoutFormatter.stdoutFormatter?.remove('trigger', fcFunction.functionConfig.name);
+      const removeMsg = StdoutFormatter.stdoutFormatter?.remove('function', fcFunction.functionConfig.name);
       this.logger.info(removeMsg || `waiting for function: ${fcFunction.functionConfig.name} to be removed`);
       const removeFunctionRes: any = await fcFunction.remove(this.access, this.appName, this.projectName, this.curPath, flags);
 

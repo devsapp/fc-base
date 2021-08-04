@@ -4,7 +4,6 @@ import { ICredentials } from '../profile';
 import * as path from 'path';
 import { FcTrigger } from './trigger';
 import * as core from '@serverless-devs/core';
-import StdoutFormatter from '../../common/stdout-formatter';
 
 export interface FunctionConfig {
   name: string;
@@ -72,14 +71,6 @@ export class FcFunction extends FcBase {
     return await FcBase.getResourceUnderParent(this.functionConfig.name, 'function', FcTrigger.keyInConfigFile, FcTrigger.keyInResource, triggerConfigFilePath);
   }
 
-  async delTriggersUnderFunction(): Promise<void> {
-    this.pulumiStackDirCheck();
-    const triggerConfigFilePath = path.join(this.pulumiStackDir, FcTrigger.configFileName);
-    const removedTriggersNames = await FcBase.delReourceUnderParent(this.functionConfig.name, 'function', FcTrigger.keyInConfigFile, FcTrigger.keyInResource, triggerConfigFilePath);
-    const removeMsg = StdoutFormatter.stdoutFormatter?.remove('trigger', `remove triggers ${removedTriggersNames} under function ${this.functionConfig.name}`);
-    this.logger.info(removeMsg || `remove triggers ${removedTriggersNames} under function: ${this.functionConfig.name}.`);
-  }
-
   async init(access: string, appName: string, projectName: string, curPath: any): Promise<void> {
     this.initConfigFileAttr(this.serviceName, FcFunction.configFileName);
     await this.importResource(access, appName, projectName, curPath);
@@ -111,8 +102,8 @@ export class FcFunction extends FcBase {
     return await this.delResourceInConfFile<FunctionConfig>(this.functionConfig, FcFunction.keyInConfigFile, FcFunction.keyInResource);
   }
 
-  async addFunctionInConfFile(assumeYes?: boolean): Promise<void> {
-    await this.addResourceInConfFile<FunctionConfig>(this.functionConfig, FcFunction.keyInConfigFile, FcFunction.keyInResource, assumeYes);
+  async addFunctionInConfFile(): Promise<void> {
+    await this.addResourceInConfFile<FunctionConfig>(this.functionConfig, FcFunction.keyInConfigFile, FcFunction.keyInResource);
   }
 
   async deploy(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
@@ -125,17 +116,7 @@ export class FcFunction extends FcBase {
   }
 
   async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
-    const triggerssArr = await this.getTriggerNames();
-    let promptMsg: string;
-    if (triggerssArr.length === 0) {
-      promptMsg = `Are you sure to remove function: ${this.functionConfig.name}?`;
-    } else if (triggerssArr.length === 1) {
-      promptMsg = `Are you sure to remove service: ${this.functionConfig.name} and function: ${triggerssArr}?`;
-    } else {
-      promptMsg = `Are you sure to remove service: ${this.functionConfig.name} and functions: ${triggerssArr}?`;
-    }
-
-    const res: any = await this.destroy(this.functionConfig.name, access, appName, projectName, curPath, promptMsg, this.pulumiUrn, flags);
+    const res: any = await this.destroy(this.functionConfig.name, access, appName, projectName, curPath, this.pulumiUrn, flags);
     if (_.isEmpty(res?.stderr)) {
       await this.clean();
       return res;

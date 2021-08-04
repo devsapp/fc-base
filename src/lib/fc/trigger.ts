@@ -164,9 +164,7 @@ export class FcTrigger extends FcBase {
   }
 
   async remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any> {
-    const promptMsg = `Are you sure to remove trigger: ${this.triggerConfig.name}?`;
-
-    const res: any = await this.destroy(this.triggerConfig.name, access, appName, projectName, curPath, promptMsg, this.pulumiUrn, flags);
+    const res: any = await this.destroy(this.triggerConfig.name, access, appName, projectName, curPath, this.pulumiUrn, flags);
     if (_.isEmpty(res?.stderr)) {
       await this.clean();
       return res;
@@ -352,8 +350,8 @@ export class FcTrigger extends FcBase {
   }
 
 
-  async addTriggerInConfFile(assumeYes?: boolean) {
-    await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, FcTrigger.keyInConfigFile, FcTrigger.keyInResource, assumeYes, FcTrigger.compareTriggerKeys);
+  async addTriggerInConfFile() {
+    await this.addResourceInConfFile<{[key: string]: any}>(this.resolvedTriggerConfig, FcTrigger.keyInConfigFile, FcTrigger.keyInResource, FcTrigger.compareTriggerKeys);
   }
 
   async clean(): Promise<void> {
