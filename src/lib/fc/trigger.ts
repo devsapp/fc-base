@@ -148,9 +148,11 @@ export class FcTrigger extends FcBase {
       const resourceName = this.genResourceName();
       const resourceID = `${this.serviceName}:${this.functionName}:${this.triggerConfig.name}`;
       // const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service$alicloud:fc/function:Function::${this.functionName}`;
-      await this.pulumiImport(access, appName, projectName, curPath, 'trigger', resourceName, resourceID);
-      const pulumiImportStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionName, this.triggerConfig.name);
-      await this.setKVInState(pulumiImportStateID, 'isImport', true);
+      if (await this.pulumiImport(access, appName, projectName, curPath, 'trigger', resourceName, resourceID)) {
+        const pulumiImportStateID: string = FcTrigger.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionName, this.triggerConfig.name);
+        await this.setKVInState(pulumiImportStateID, 'isImport', true);
+      }
+
     }
   }
 
