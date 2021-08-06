@@ -77,8 +77,9 @@ export class FcService extends FcBase {
     if (this.isPulumiImport && !await this.isImported()) {
       const resourceName = this.serviceConfig.name;
       const resourceID = `${this.serviceConfig.name}`;
-      await this.pulumiImport(access, appName, projectName, curPath, 'service', resourceName, resourceID);
-      await this.setKVInState(FcService.genStateID(this.credentials.AccountID, this.region, this.serviceConfig.name), 'isImport', true);
+      if (await this.pulumiImport(access, appName, projectName, curPath, 'service', resourceName, resourceID)) {
+        await this.setKVInState(FcService.genStateID(this.credentials.AccountID, this.region, this.serviceConfig.name), 'isImport', true);
+      }
     }
   }
 

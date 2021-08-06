@@ -337,7 +337,7 @@ export default abstract class FcBase {
     return false;
   }
 
-  async pulumiImport(access: string, appName: string, projectName: string, curPath: any, type: string, resourceName: string, resourceID: string, parentUrn?: string): Promise<void> {
+  async pulumiImport(access: string, appName: string, projectName: string, curPath: any, type: string, resourceName: string, resourceID: string, parentUrn?: string): Promise<boolean> {
     this.logger.debug(`importing ${type} ${resourceID} from remote to local stack.`);
     const importFlag = genPulumiImportFlags(this.isPulumiImportProtect, this.stackID, parentUrn);
 
@@ -368,15 +368,12 @@ export default abstract class FcBase {
     try {
       await pulumiComponentIns.import(pulumiInputs);
     } catch (e) {
-      if (e.message.includes('does not exist')) {
-        throw new Error(`Resouce ${resourceType}: ${resourceID} dose not exist online, please create it without 'import' and 'protect' option!\n`);
-      }
-      if (!e.message.includes('stderr: error: no name for resource')) {
-        throw e;
-      }
-      this.logger.debug('can not import alicloud:fc/trigger repeatedly.');
+      this.logger.warn(`Import ${resourceType}: ${resourceName} failed. Fc will try to deploy/remove ${resourceName} next.`);
+      this.logger.debug(`Import ${resourceType}: ${resourceName} failed, error: ${e}`);
+      return false;
     }
     this.logger.debug(`${type} ${resourceID} is imported.`);
+    return true;
   }
 
   abstract validateConfig(): void;

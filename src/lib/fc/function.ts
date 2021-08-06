@@ -88,9 +88,11 @@ export class FcFunction extends FcBase {
       const resourceName: string = this.functionConfig.name;
       const resourceID = `${this.serviceName}:${this.functionConfig.name}`;
       // const parentUrn = `urn:pulumi:${this.stackID}::${this.stackID}::alicloud:fc/service:Service::${this.serviceName}`;
-      await this.pulumiImport(access, appName, projectName, curPath, 'function', resourceName, resourceID);
-      const pulumiImportStateID: string = FcFunction.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionConfig.name);
-      await this.setKVInState(pulumiImportStateID, 'isImport', true);
+      if (await this.pulumiImport(access, appName, projectName, curPath, 'function', resourceName, resourceID)) {
+        const pulumiImportStateID: string = FcFunction.genStateID(this.credentials.AccountID, this.region, this.serviceName, this.functionConfig.name);
+        await this.setKVInState(pulumiImportStateID, 'isImport', true);
+      }
+
     }
   }
 
