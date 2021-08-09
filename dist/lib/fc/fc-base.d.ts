@@ -18,13 +18,14 @@ export default abstract class FcBase {
     createConfFile<T>(resource: T, keyInConfFile: string): Promise<void>;
     static zeroImportState(stateID: string): Promise<void>;
     setKVInState(stateID: string, key: string, value: any): Promise<void>;
-    updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void>;
+    updateReourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, isResourceHasSameKeyFunc?: Function): Promise<void>;
     static getResourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]>;
-    destroy(name: string, access: string, appName: string, projectName: string, curPath: any, promptMsg: string, targetUrn?: string, flags?: any): Promise<any>;
+    up(name: string | string[], access: string, appName: string, projectName: string, curPath: any, targetUrn?: string | string[], flags?: any): Promise<any>;
+    destroy(name: string | string[], access: string, appName: string, projectName: string, curPath: any, targetUrn?: string | string[], flags?: any): Promise<any>;
     static delReourceUnderParent(parentName: string, parentKeyInChildResource: string, childKeyInConfFile: string, childKeyInResource: string, configFilePath: string): Promise<string[]>;
-    addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, assumeYes?: boolean, isResourceHasSameKeyFunc?: Function): Promise<void>;
+    addResourceInConfFile<T>(resource: T, keyInConfFile: string, keyInResource: string, isResourceHasSameKeyFunc?: Function): Promise<void>;
     preparePulumiCode(): Promise<void>;
     configFileExists(): Promise<boolean>;
-    pulumiImport(access: string, appName: string, projectName: string, curPath: any, type: string, resourceName: string, resourceID: string, parentUrn?: string): Promise<void>;
+    pulumiImport(access: string, appName: string, projectName: string, curPath: any, type: string, resourceName: string, resourceID: string, parentUrn?: string): Promise<boolean>;
     abstract validateConfig(): void;
 }

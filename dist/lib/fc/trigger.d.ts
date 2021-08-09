@@ -33,6 +33,7 @@ export declare class FcTrigger extends FcBase {
     };
     readonly serviceName: string;
     readonly functionName?: string;
+    pulumiUrn: string;
     static keyInConfigFile: string;
     static keyInResource: string;
     static configFileName: string;
@@ -47,12 +48,13 @@ export declare class FcTrigger extends FcBase {
     isImported(): Promise<boolean>;
     genResourceName(): string;
     importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    deploy(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
     remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
     static genStateID(accountID: string, region: string, serviceName: string, functionName: string, triggerName: string): string;
     resolveTriggerIntoPulumiFormat(): any;
     getTriggerConfigInPulumiFormat(): string;
     getSourceArn(): string | undefined;
     delTriggerInConfFile(): Promise<boolean>;
-    addTriggerInConfFile(assumeYes?: boolean): Promise<void>;
+    addTriggerInConfFile(): Promise<void>;
     clean(): Promise<void>;
 }

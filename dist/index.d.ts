@@ -14,7 +14,6 @@ export default class FcBaseComponent {
         fcService: FcService;
         fcFunction: FcFunction;
         fcTriggers: FcTrigger[];
-        args: string;
     }>;
     deploy(inputs: IInputs): Promise<any>;
     remove(inputs: IInputs): Promise<any>;

@@ -31,9 +31,12 @@ if (fse.pathExistsSync(fcFunctionConfigFile)) {
   const fcFunctionObj = JSON.parse(fse.readFileSync(fcFunctionConfigFile, { encoding: 'utf-8' }));
   const functionConfs = fcFunctionObj.function;
   for (const functionConf of functionConfs) {
+    Object.assign(functionConf, {
+      service: fcService.name,
+    });
     const fcFunction = new alicloud.fc.Function(functionConf.name, functionConf, {
-      dependsOn: [fcService],
-      parent: fcService,
+      dependsOn: fcService,
+      // parent: fcService,
       customTimeouts: defaultCustomTimeouts,
     });
     if (fse.pathExistsSync(fcTriggerConfigFile)) {
@@ -42,9 +45,13 @@ if (fse.pathExistsSync(fcFunctionConfigFile)) {
 
       for (const triggerConf of triggerConfs) {
         if (triggerConf.function !== functionConf.name) { continue; }
+        Object.assign(triggerConf, {
+          service: fcService.name,
+          function: fcFunction.name,
+        });
         const fcTrigger = new alicloud.fc.Trigger(`${functionConf.name}-${triggerConf.name}`, triggerConf, {
-          dependsOn: [fcService, fcFunction],
-          parent: fcFunction,
+          dependsOn: fcFunction,
+          // parent: fcFunction,
           customTimeouts: defaultCustomTimeouts,
         });
       }
