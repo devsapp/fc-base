@@ -12,7 +12,7 @@ services:
         name: qianfeng-egg-app
         internetAccess: true
         role: >-
-          acs:ram::1986114430573743:role/framework-1986114430573743-cn-hangzhou-qianfeng-egg-app
+          acs:ram::xxx:role/framework-xxx-cn-hangzhou-qianfeng-egg-app
         vpcConfig:
           securityGroupId: sg-bp18z8zmujqfsvlpo2jk
           vswitchIds:
