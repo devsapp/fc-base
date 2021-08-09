@@ -14,7 +14,8 @@ import { handlerKnownErrors } from '../error';
 import StdoutFormatter from '../../common/stdout-formatter';
 import { genTargetArgs } from '../utils/pulumi';
 
-const CODE_LIB_PATH = path.resolve(__dirname, '..');
+// const CODE_LIB_PATH = path.resolve(__dirname, '..');
+const CODE_LIB_PATH = path.resolve(__dirname, 'lib');
 const PULUMI_CACHE_DIR: string = path.join(os.homedir(), '.s', 'cache', 'pulumi', 'fc-base');
 const PULUMI_CODE_DIR: string = path.join(CODE_LIB_PATH, 'utils', 'pulumi');
 const PULUMI_CODE_FILE: string = path.join(PULUMI_CODE_DIR, 'index.js');

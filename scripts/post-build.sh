@@ -4,6 +4,7 @@ set -e
 ALICLOUD_PLUGIN_VERSION=v2.38.0
 ALICLOUD_PLUGIN_ZIP_FILE_NAME=pulumi-resource-alicloud-${ALICLOUD_PLUGIN_VERSION}.tgz
 
+mkdir -p dist/lib/utils
 cp -r src/lib/utils/pulumi dist/lib/utils
 # mkdir -p dist/scripts
 # cp -f scripts/post-install.js dist/scripts/post-install.js
@@ -17,9 +18,9 @@ if ! [ -x "$(command -v ossutil)" ]; then
         curl -o ossutilmac64 http://gosspublic.alicdn.com/ossutil/1.7.2/ossutilmac64
         chmod 755 ossutilmac64
         mv ./ossutilmac64 /usr/local/bin/ossutil
-        ;; 
-    *)        
-        echo "'ossutil' command is missing." 
+        ;;
+    *)
+        echo "'ossutil' command is missing."
         exit -1
         ;;
     esac
