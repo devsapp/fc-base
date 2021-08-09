@@ -9,7 +9,7 @@ commit: add
 	git-cz
 
 rebase-main: commit
-	git pull --rebase origin main
+	git pull --rebase origin master
 
 push:
 	git push --force-with-lease origin $(CURRENT_BRANCH_NAME)

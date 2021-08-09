@@ -17,6 +17,7 @@ export interface ServiceConfig {
 export declare function genStackId(accountId: string, region: string, serviceName: string): string;
 export declare class FcService extends FcBase {
     readonly serviceConfig: ServiceConfig;
+    pulumiUrn: string;
     static keyInConfigFile: string;
     static keyInResource: string;
     static configFileName: string;
@@ -26,11 +27,12 @@ export declare class FcService extends FcBase {
     static genStateID(accountID: string, region: string, serviceName: string): string;
     isImported(): Promise<boolean>;
     importResource(access: string, appName: string, projectName: string, curPath: any): Promise<void>;
+    deploy(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
     remove(access: string, appName: string, projectName: string, curPath: any, flags?: any): Promise<any>;
     clean(): Promise<void>;
     createServiceConfFile(): Promise<void>;
     getFunctionNames(): Promise<string[]>;
     getFunctionAndTriggerNamesMap(): Promise<any>;
-    updateServiceInConfFile(assumeYes?: boolean): Promise<void>;
-    addServiceInConfFile(assumeYes?: boolean): Promise<void>;
+    updateServiceInConfFile(): Promise<void>;
+    addServiceInConfFile(): Promise<void>;
 }
