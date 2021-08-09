@@ -4,8 +4,8 @@ access: default  #  秘钥别名
 
 services:
   fc-base-test: #  服务名称
-    # component: fc-base  # 组件名称
-    component: ${path(../..)}
+    component: devsapp/fc-base@dev  # 组件名称
+    # component: ${path(../..)}
     props: #  组件的属性值
       region: cn-hangzhou
       service:
