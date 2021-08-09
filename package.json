@@ -9,8 +9,6 @@
     "lodash": "^4.17.21",
     "colors": "^1.4.0",
     "progress": "^2.0.3",
-    "archiver": "^5.3.0",
-    "inquirer": "^8.1.0",
     "proper-lockfile": "^4.1.2",
     "promise-retry": "^2.0.1"
   },
@@ -25,16 +23,14 @@
     "ts-loader": "^8.0.14",
     "ts-node": "^9.1.1",
     "typescript": "^3.9.7",
-    "webpack": "^4.46.0",
-    "webpack-cli": "^4.4.0"
+    "@zeit/ncc": "^0.22.3"
   },
+  "autoInstall": false,
   "scripts": {
     "dev": "npx tsc -w -p tsconfig.json",
     "prebuild": "rm -rf node_modules && rm -rf package-lock.json && npm i && rimraf dist",
-    "build": "npx tsc -p tsconfig.json",
+    "build": "ncc build src/index.ts -m -o dist",
     "postbuild": "./scripts/post-build.sh",
-    "build:component": "npx webpack --mode=production",
-    "publish": "npm run build:component && s platform publish",
     "test": "jest",
     "test:cov": "jest --coverage",
     "lint": "f2elint scan",
