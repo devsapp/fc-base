@@ -1,6 +1,6 @@
 {
   "name": "fc-base",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "main": "./dist/index.js",
   "dependencies": {
     "fs-extra": "^10.0.0",
