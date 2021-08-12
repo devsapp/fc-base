@@ -42,3 +42,4 @@ lerna-debug.log*
 dist/lib/utils/pulumi-plugin/
 .oss_cfg
 package-lock.json
+./dist

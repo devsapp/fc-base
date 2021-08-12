@@ -19,6 +19,11 @@ if ! [ -x "$(command -v ossutil)" ]; then
         chmod 755 ossutilmac64
         mv ./ossutilmac64 /usr/local/bin/ossutil
         ;;
+    linux*)
+        wget http://gosspublic.alicdn.com/ossutil/1.7.5/ossutil64
+        chmod 755 ossutil64
+        mv ./ossutil64 /usr/local/bin/ossutil
+        ;;
     *)
         echo "'ossutil' command is missing."
         exit -1
