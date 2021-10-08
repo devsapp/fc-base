@@ -1,0 +1,16 @@
+{
+  "name": "pulumi-fc",
+  "version": "1.0.0",
+  "description": "This is for deploying fc resource via pulumi",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@pulumi/pulumi": "^2.21.2",
+    "@pulumi/alicloud": "2.38.0",
+    "fs-extra": "^9.1.0"
+  }
+}
